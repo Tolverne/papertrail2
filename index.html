@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/bitmaks/cm-web-fonts@latest/fonts.css">
+
+    <title>Interactive LaTeX Quiz</title>
+    <script>
+                // MathJax configuration
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']],
+    processEscapes: true,
+    processEnvironments: true,
+    prefilterHooks: [
+      function (data) {
+        // Remove all \vspace{...} commands
+        data.math = data.math.replace(/\\vspace\{[^}]*\}/g, '');
+      }
+    ]
+  },
+  options: {
+    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+  }
+};
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Computer Modern", serif;
+            background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .file-input-container {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .file-input-container:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .file-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .question-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 5px solid #667eea;
+        }
+
+        .question-text {
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .part-container {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .part-text {
+            font-size: 1.1em;
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        .canvas-area {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .canvas-container {
+            position: relative;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        .drawing-canvas {
+            border-radius: 6px;
+            cursor: crosshair;
+            touch-action: none;
+            background-size: 25px 25px;
+            background-image:
+                linear-gradient(to right, lightgrey 1px, transparent 1px),
+                linear-gradient(to bottom, lightgrey 1px, transparent 1px);
+        }
+
+        .resize-handle {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 15px;
+            height: 15px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: nw-resize;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .resize-handle:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+        }
+
+        .tools {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+        }
+
+        .color-picker {
+            display: flex;
+            gap: 10px;
+        }
+
+        .color-btn {
+            width: 40px;
+            height: 40px;
+            border: 3px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .color-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .color-btn.active {
+            border-color: #2c3e50;
+            transform: scale(1.1);
+        }
+
+        .eraser-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);
+        }
+
+        .eraser-btn:hover, .eraser-btn.active {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(255, 107, 107, 0.4);
+        }
+
+        .generate-pdf-btn {
+            background: linear-gradient(45deg, #10ac84, #00d2d3);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 30px auto;
+            display: block;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(16, 172, 132, 0.3);
+        }
+
+        .generate-pdf-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(16, 172, 132, 0.4);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .canvas-area {
+                flex-direction: column;
+            }
+            
+            .tools {
+                align-self: center;
+            }
+            
+            .color-picker {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Mathematics: Analysis and Approaches</h1>
+        </div>
+        <div class="name-input-container" style="margin-bottom: 30px; text-align: center;">
+            <label for="studentName" style="font-size: 1.2em; font-weight: 600; color: #2c3e50;">
+                🧑 Your Name:
+            </label><br>
+            <input type="text" id="studentName" placeholder="Enter your name" 
+                   style="margin-top: 10px; padding: 10px 20px; font-size: 1em; border: 2px solid #dee2e6; border-radius: 10px; width: 60%; max-width: 400px;">
+        </div>
+        
+        <div class="file-input-container">
+            <input type="file" id="fileInput" class="file-input" accept=".tex,.txt">
+            <label for="fileInput" class="file-label">
+                📁 Choose LaTeX File
+            </label>
+            <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>🔄 Processing LaTeX file...</p>
+        </div>
+
+        <div id="questionsContainer"></div>
+
+        <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
+            📄 Generate PDF
+        </button>
+        <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
+            <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
+            <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
+        </div>
+    </div>
+
+    <script>
+
+
+        class QuizApp {
+            constructor() {
+                this.questions = [];
+                this.canvases = [];
+                this.currentColor = '#000000';
+                this.isErasing = false;
+                this.isDrawing = false;
+                this.lastX = 0;
+                this.lastY = 0;
+                this.studentName = '';
+                this.fileName = '';
+                this.init();
+            }
+
+            init() {
+                document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
+                document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
+            }
+
+
+
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.fileName=file.name;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    this.parseLatexFile(content);
+                };
+                reader.readAsText(file);
+
+                document.getElementById('loading').style.display = 'block';
+            }
+
+            parseLatexFile(content) {
+                const questions = [];
+                
+                // Extract questions using regex
+                const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
+                if (!questionsMatch) {
+                    alert('No questions found in the LaTeX file. Please check the format.');
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+
+                const questionsContent = questionsMatch[1];
+                
+                // Split by \question but keep the \question text
+                const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
+                
+                questionBlocks.forEach((block, index) => {
+                    const question = { id: index + 1, text: '', parts: [] };
+                    
+                    // Check if this question has parts
+                    const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
+                    
+                    if (partsMatch) {
+                        question.text = partsMatch[1].trim();
+                        const partsContent = partsMatch[2];
+                        
+                        // Extract parts
+                        const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
+                        parts.forEach((partText, partIndex) => {
+                            question.parts.push({
+                                id: partIndex + 1,
+                                text: partText.trim()
+                            });
+                        });
+                    } else {
+                        // Question without parts
+                        question.text = block.trim();
+                        question.parts.push({
+                            id: 1,
+                            text: ''
+                        });
+                    }
+                    
+                    questions.push(question);
+                });
+
+                this.questions = questions;
+                this.renderQuestions();
+                document.getElementById('loading').style.display = 'none';
+            }
+
+            renderQuestions() {
+                const container = document.getElementById('questionsContainer');
+                container.innerHTML = '';
+
+                this.questions.forEach((question) => {
+                    const questionDiv = document.createElement('div');
+                    questionDiv.className = 'question-container';
+                    questionDiv.setAttribute('data-question', question.id);
+                    questionDiv.innerHTML = `
+                        <div class="question-text">
+                            <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                        </div>
+                    `;
+
+                    question.parts.forEach((part) => {
+                        const partDiv = document.createElement('div');
+                        partDiv.className = 'part-container';
+                        partDiv.setAttribute('data-question', question.id);
+                        partDiv.setAttribute('data-part', part.id);
+                        
+                        const partContent = `
+                            <div class="part-text">
+                                ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                            </div>
+                            <div class="canvas-area">
+                                <div class="canvas-container">
+                                    <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                                    <div class="resize-handle"></div>
+                                </div>
+                                <div class="tools">
+                                    <div class="color-picker">
+                                        <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
+                                        <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
+                                        <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
+                                    </div>
+                                    <button class="eraser-btn">🧽 Eraser</button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        partDiv.innerHTML = partContent;
+                        questionDiv.appendChild(partDiv);
+                    });
+
+                    container.appendChild(questionDiv);
+                });
+
+                this.initializeCanvases();
+                this.renderMath();
+                document.getElementById('generatePdf').style.display = 'block';
+            }
+
+processLatexText(text) {
+    return text
+        .replace(/\\vspace\{[^}]*\}/g, '')            // Remove all \vspace{...}
+        .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
+        .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
+        .replace(/\\emph{([^}]*)}/g, '<em>$1</em>');
+}
+
+            renderMath() {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().catch((err) => console.log(err.message));
+                }
+            }
+
+            initializeCanvases() {
+                const canvases = document.querySelectorAll('.drawing-canvas');
+                
+                canvases.forEach((canvas) => {
+                    const ctx = canvas.getContext('2d');
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = 2;
+                    
+                    this.canvases.push({ canvas, ctx });
+                    
+                    // Drawing event listeners
+                    canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+                    canvas.addEventListener('mousemove', this.draw.bind(this));
+                    canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+                    canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+                    
+                    // Touch events for stylus/finger
+                    canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+                    canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+                    canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+                    
+                    // Pinch to zoom
+                    canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
+                    canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
+                    
+                    // Resize handle
+                    const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+                    resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+                });
+                
+                // Color picker and eraser event listeners
+                document.querySelectorAll('.color-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        // Remove active class from siblings
+                        e.target.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        
+                        this.currentColor = e.target.dataset.color;
+                        this.isErasing = false;
+                        
+                        // Remove active from eraser
+                        e.target.closest('.tools').querySelector('.eraser-btn').classList.remove('active');
+                    });
+                });
+                
+                document.querySelectorAll('.eraser-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.isErasing = !this.isErasing;
+                        e.target.classList.toggle('active');
+                        
+                        // Remove active from color buttons
+                        if (this.isErasing) {
+                            e.target.closest('.tools').querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                        }
+                    });
+                });
+            }
+
+            startDrawing(e) {
+                this.isDrawing = true;
+                const rect = e.target.getBoundingClientRect();
+                this.lastX = e.clientX - rect.left;
+                this.lastY = e.clientY - rect.top;
+            }
+
+            draw(e) {
+                if (!this.isDrawing) return;
+                
+                const canvas = e.target;
+                const ctx = canvas.getContext('2d');
+                const rect = canvas.getBoundingClientRect();
+                
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(currentX, currentY);
+                
+                if (this.isErasing) {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.lineWidth = 50;
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = this.currentColor;
+                    ctx.lineWidth = 2;
+                }
+                
+                ctx.stroke();
+                
+                this.lastX = currentX;
+                this.lastY = currentY;
+            }
+
+            stopDrawing() {
+                this.isDrawing = false;
+            }
+
+            handleTouch(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                                 e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                e.target.dispatchEvent(mouseEvent);
+            }
+
+            handleGesture(e) {
+                e.preventDefault();
+                if (e.type === 'gesturechange') {
+                    const canvas = e.target;
+                    const newWidth = Math.max(200, Math.min(800, canvas.width * e.scale));
+                    const newHeight = Math.max(150, Math.min(600, canvas.height * e.scale));
+                    
+                    // Preserve canvas content
+                    const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    canvas.getContext('2d').putImageData(imageData, 0, 0);
+                }
+            }
+
+            startResize(e, canvas) {
+                e.preventDefault();
+                const startX = e.clientX;
+                const startY = e.clientY;
+                const startWidth = canvas.width;
+                const startHeight = canvas.height;
+                
+                const doDrag = (e) => {
+                    const newWidth = Math.min(800,Math.max(200, startWidth + (e.clientX - startX)));
+                    const newHeight = Math.min(800,Math.max(150, startHeight + (e.clientY - startY)));
+                    
+                    // Preserve canvas content
+                    const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                    canvas.width = newWidth;
+                    canvas.height = newHeight;
+                    canvas.getContext('2d').putImageData(imageData, 0, 0);
+                };
+                
+                const stopDrag = () => {
+                    document.removeEventListener('mousemove', doDrag);
+                    document.removeEventListener('mouseup', stopDrag);
+                };
+                
+                document.addEventListener('mousemove', doDrag);
+                document.addEventListener('mouseup', stopDrag);
+            }
+
+            async generatePDF() {
+    console.log('Starting PDF generation...');
+    
+    this.studentName = document.getElementById('studentName').value.trim();
+
+    const progressContainer = document.querySelector('.pdf-progress-container');
+    const progressBar = document.getElementById('pdfProgress');
+    progressContainer.style.display = 'block';
+    progressBar.value = 0;
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        let isFirstPage = true;
+
+        const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
+        let processedParts = 0;
+
+        for (const question of this.questions) {
+            for (const part of question.parts) {
+                if (!isFirstPage) pdf.addPage();
+                isFirstPage = false;
+
+                let yPos = 20;
+
+                const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
+                const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
+
+                try {
+                    if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
+
+                    if (questionTextElement) {
+                        const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                        const questionImgData = questionCanvas.toDataURL('image/png');
+                        const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
+                        const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
+                        pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
+                        yPos += questionImgHeight + 8;
+                    }
+
+                    if (partTextElement && part.text) {
+                        const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
+                        const partImgData = partCanvas.toDataURL('image/png');
+                        const partImgWidth = Math.min(170, partCanvas.width * 0.25);
+                        const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
+                        pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
+                        yPos += partImgHeight + 15;
+                    } else {
+                        yPos += 15;
+                    }
+
+                } catch (error) {
+                    console.warn('Fallback:', error);
+                    const questionText = `Question ${question.id}: ${question.text}`;
+                    const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
+                    pdf.setFontSize(12);
+                    pdf.setFont(undefined, 'bold');
+                    const questionLines = pdf.splitTextToSize(questionText, 170);
+                    pdf.text(questionLines, 15, yPos);
+                    yPos += questionLines.length * 6 + 5;
+
+                    if (partText) {
+                        pdf.setFont(undefined, 'normal');
+                        const partLines = pdf.splitTextToSize(partText, 170);
+                        pdf.text(partLines, 15, yPos);
+                        yPos += partLines.length * 6 + 15;
+                    }
+                }
+
+                const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
+                if (canvas) {
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = Math.min(170, canvas.width * 0.35);
+                    const imgHeight = canvas.height * (imgWidth / canvas.width);
+                    pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
+                }
+
+                // ✅ Update progress bar
+                processedParts++;
+                progressBar.value = Math.round((processedParts / totalParts) * 100);
+            }
+        }
+
+// Use stored LaTeX filename (without extension)
+        const baseName = this.fileName.replace(/\.[^/.]+$/, '');  // removes extension like .tex or .txt
+        const namePart = this.studentName ? this.studentName.replace(/\s+/g, '_') : 'student';
+        pdf.save(`${baseName}-${namePart}-answers.pdf`); 
+        console.log('PDF generated successfully');
+
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF: ' + error.message);
+    } finally {
+        // ✅ Hide progress after short delay
+        setTimeout(() => {
+            document.querySelector('.pdf-progress-container').style.display = 'none';
+        }, 1000);
+    }
+}
+
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new QuizApp();
+        });
+    </script>
+</body>
+</html>
