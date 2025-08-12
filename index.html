@@ -295,14 +295,6 @@ window.MathJax = {
             <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
         </div>
 
-        <select id="texFileSelect">
-          <option value="">Select a file...</option>
-        </select>
-        <button id="loadSelected">Load Selected</button>
-        <input type="file" id="fileInput">
-        <button id="generatePdf">Generate PDF</button>
-        <div id="loading" style="display:none;">Loading...</div>
-        
         <div class="loading" id="loading">
             <p>🔄 Processing LaTeX file...</p>
         </div>
@@ -321,98 +313,41 @@ window.MathJax = {
     <script>
 
 
-class QuizApp {
-    constructor() {
-        this.questions = [];
-        this.canvases = [];
-        this.currentColor = '#000000';
-        this.isErasing = false;
-        this.isDrawing = false;
-        this.lastX = 0;
-        this.lastY = 0;
-        this.studentName = '';
-        this.fileName = '';
-        this.init();
-    }
+        class QuizApp {
+            constructor() {
+                this.questions = [];
+                this.canvases = [];
+                this.currentColor = '#000000';
+                this.isErasing = false;
+                this.isDrawing = false;
+                this.lastX = 0;
+                this.lastY = 0;
+                this.studentName = '';
+                this.fileName = '';
+                this.init();
+            }
 
-    init() {
-        document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
-        document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
-        
-    const files = await this.fetchTexFiles();
-    const select = document.getElementById('texFileSelect');
-    files.forEach(file => {
-      const opt = document.createElement('option');
-      opt.value = file.download_url;
-      opt.textContent = file.name;
-      select.appendChild(opt);
-    });
+            init() {
+                document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
+                document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
+            }
 
-    document.getElementById('loadSelected').addEventListener('click', () => {
-      const url = select.value;
-      this.loadFromGithub(url);
-    });
-    }
 
-this.fetchTexFiles().then(files => {
-  const select = document.getElementById('texFileSelect');
-  files.forEach(file => {
-    const opt = document.createElement('option');
-    opt.value = file.download_url;
-    opt.textContent = file.name;
-    select.appendChild(opt);
-  });
-  select.addEventListener('change', () => this.loadFromGithub(select.value));
-});
 
-    
-    handleFileUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
 
-        this.fileName = file.name;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const content = e.target.result;
-            this.parseLatexFile(content);
-        };
-        reader.readAsText(file);
+                this.fileName=file.name;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    this.parseLatexFile(content);
+                };
+                reader.readAsText(file);
 
-        document.getElementById('loading').style.display = 'block';
-    }
-
-async loadFromGithub(fileUrl) {
-  if (!fileUrl) return alert('Please choose a file first.');
-  this.fileName = fileUrl.split('/').pop();
-  document.getElementById('loading').style.display = 'block';
-  try {
-    const res = await fetch(fileUrl);
-    if (!res.ok) throw new Error(res.statusText);
-    const txt = await res.text();
-    this.parseLatexFile(txt);
-  } catch (e) {
-    console.error('Failed to fetch:', e);
-    alert('Failed to load the file.');
-  } finally {
-    document.getElementById('loading').style.display = 'none';
-  }
-}
-
-        this.fileName = fileUrl.split('/').pop();
-        document.getElementById('loading').style.display = 'block';
-
-        try {
-            const response = await fetch(fileUrl);
-            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-            const content = await response.text();
-            this.parseLatexFile(content);
-        } catch (error) {
-            console.error('Error loading file from GitHub:', error);
-            alert('Failed to load file from GitHub.');
-        } finally {
-            document.getElementById('loading').style.display = 'none';
-        }
-    }
+                document.getElementById('loading').style.display = 'block';
+            }
 
             parseLatexFile(content) {
                 const questions = [];
