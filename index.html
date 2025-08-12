@@ -313,41 +313,63 @@ window.MathJax = {
     <script>
 
 
-        class QuizApp {
-            constructor() {
-                this.questions = [];
-                this.canvases = [];
-                this.currentColor = '#000000';
-                this.isErasing = false;
-                this.isDrawing = false;
-                this.lastX = 0;
-                this.lastY = 0;
-                this.studentName = '';
-                this.fileName = '';
-                this.init();
-            }
+class QuizApp {
+    constructor() {
+        this.questions = [];
+        this.canvases = [];
+        this.currentColor = '#000000';
+        this.isErasing = false;
+        this.isDrawing = false;
+        this.lastX = 0;
+        this.lastY = 0;
+        this.studentName = '';
+        this.fileName = '';
+        this.init();
+    }
 
-            init() {
-                document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
-                document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
-            }
+    init() {
+        document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
+        document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
+        document.getElementById('loadFromGithub').addEventListener('click', this.loadFromGithub.bind(this));
+    }
 
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
+        this.fileName = file.name;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            this.parseLatexFile(content);
+        };
+        reader.readAsText(file);
 
-            handleFileUpload(event) {
-                const file = event.target.files[0];
-                if (!file) return;
+        document.getElementById('loading').style.display = 'block';
+    }
 
-                this.fileName=file.name;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const content = e.target.result;
-                    this.parseLatexFile(content);
-                };
-                reader.readAsText(file);
+    async loadFromGithub() {
+        const fileUrl = document.getElementById('githubFileUrl').value.trim();
+        if (!fileUrl) {
+            alert('Please enter a GitHub raw file URL.');
+            return;
+        }
 
-                document.getElementById('loading').style.display = 'block';
-            }
+        this.fileName = fileUrl.split('/').pop();
+        document.getElementById('loading').style.display = 'block';
+
+        try {
+            const response = await fetch(fileUrl);
+            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+            const content = await response.text();
+            this.parseLatexFile(content);
+        } catch (error) {
+            console.error('Error loading file from GitHub:', error);
+            alert('Failed to load file from GitHub.');
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+        }
+    }
 
             parseLatexFile(content) {
                 const questions = [];
