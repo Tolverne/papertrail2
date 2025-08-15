@@ -1,56 +1,806 @@
-<!DOCTYPE html>
+// Continue with rendering methods (keeping your existing logic)
+            renderSectionCarousel() {
+                const carousel = document.getElementById('sectionCarousel');
+                const questionsContainer = document.getElementById('questionsContainer');
+                
+                questionsContainer.style.display = 'none';
+                carousel.style.display = 'block';
+                
+                this.renderSectionTabs();
+                this.renderCarouselSlides();
+                this.initializeCarouselControls();
+                this.initializeSidebarTools();
+                
+                setTimeout(() => {
+                    this.initializeCanvasesForSection(0);
+                    this.renderMath();
+                }, 100);
+                
+                this.showSection(0);
+                document.getElementById('generatePdf').style.display = 'block';
+            }
+
+            renderSectionTabs() {
+                const tabsContainer = document.getElementById('sectionTabs');
+                tabsContainer.innerHTML = '';
+                
+                this.sections.forEach((section, index) => {
+                    const tab = document.createElement('button');
+                    tab.className = `section-tab ${index === 0 ? 'active' : ''}`;
+                    tab.textContent = section.title;
+                    tab.addEventListener('click', () => this.showSection(index));
+                    tabsContainer.appendChild(tab);
+                });
+            }
+
+            renderCarouselSlides() {
+                const container = document.getElementById('carouselContainer');
+                container.innerHTML = '';
+                
+                this.sections.forEach((section, sectionIndex) => {
+                    const slide = document.createElement('div');
+                    slide.className = 'carousel-slide';
+                    slide.innerHTML = `
+                        <div class="section-title">${section.title}</div>
+                        <div class="section-questions" data-section="${sectionIndex}"></div>
+                    `;
+                    container.appendChild(slide);
+                    
+                    this.renderQuestionsForSection(section.questions, sectionIndex);
+                });
+            }
+
+            renderQuestionsForSection(questions, sectionIndex) {
+                const sectionQuestionsContainer = document.querySelector(`[data-section="${sectionIndex}"]`);
+                if (!sectionQuestionsContainer) return;
+                
+                sectionQuestionsContainer.innerHTML = '';
+
+                if (questions.length === 0) {
+                    sectionQuestionsContainer.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 40px;">No questions found in this section.</p>';
+                    return;
+                }
+
+                questions.forEach((question) => {
+                    const questionDiv = document.createElement('div');
+                    questionDiv.className = 'question-container';
+                    questionDiv.setAttribute('data-question', question.id);
+                    questionDiv.setAttribute('data-section', sectionIndex);
+                    questionDiv.innerHTML = `
+                        <div class="question-text">
+                            <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                        </div>
+                    `;
+
+                    question.parts.forEach((part) => {
+                        const partDiv = document.createElement('div');
+                        partDiv.className = 'part-container';
+                        partDiv.setAttribute('data-question', question.id);
+                        partDiv.setAttribute('data-part', part.id);
+                        partDiv.setAttribute('data-section', sectionIndex);
+                        
+                        const partContent = `
+                            <div class="part-text">
+                                ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                            </div>
+                            <div class="canvas-area">
+                                <div class="canvas-container">
+                                    <canvas class="drawing-canvas" width="400" height="300" 
+                                            data-question="${question.id}" 
+                                            data-part="${part.id}"
+                                            data-section="${sectionIndex}"></canvas>
+                                    <div class="resize-handle"></div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        partDiv.innerHTML = partContent;
+                        questionDiv.appendChild(partDiv);
+                    });
+
+                    sectionQuestionsContainer.appendChild(questionDiv);
+                });
+            }
+
+            initializeCarouselControls() {
+                const prevBtn = document.getElementById('prevSection');
+                const nextBtn = document.getElementById('nextSection');
+                
+                prevBtn.addEventListener('click', () => this.previousSection());
+                nextBtn.addEventListener('click', () => this.nextSection());
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey || e.metaKey) return;
+                    
+                    if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.previousSection();
+                    } else if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        this.nextSection();
+                    }
+                });
+                
+                this.updateCarouselControls();
+            }
+
+            showSection(index) {
+                if (index < 0 || index >= this.sections.length) return;
+                
+                this.currentSectionIndex = index;
+                
+                document.querySelectorAll('.section-tab').forEach((tab, i) => {
+                    tab.classList.toggle('active', i === index);
+                });
+                
+                const container = document.getElementById('carouselContainer');
+                container.style.transform = `translateX(-${index * 100}%)`;
+                
+                this.updateCarouselControls();
+                
+                setTimeout(() => {
+                    this.initializeCanvasesForSection(index);
+                    this.renderMathForSection(index);
+                }, 500);
+            }
+
+            previousSection() {
+                if (this.currentSectionIndex > 0) {
+                    this.showSection(this.currentSectionIndex - 1);
+                }
+            }
+
+            nextSection() {
+                if (this.currentSectionIndex < this.sections.length - 1) {
+                    this.showSection(this.currentSectionIndex + 1);
+                }
+            }
+
+            updateCarouselControls() {
+                const prevBtn = document.getElementById('prevSection');
+                const nextBtn = document.getElementById('nextSection');
+                const counter = document.getElementById('sectionCounter');
+                
+                prevBtn.disabled = this.currentSectionIndex === 0;
+                nextBtn.disabled = this.currentSectionIndex === this.sections.length - 1;
+                
+                counter.textContent = `${this.currentSectionIndex + 1} / ${this.sections.length}`;
+            }
+
+            initializeCanvasesForSection(sectionIndex) {
+                const sectionCanvases = document.querySelectorAll(`[data-section="${sectionIndex}"] .drawing-canvas`);
+                
+                sectionCanvases.forEach((canvas) => {
+                    if (canvas.dataset.initialized) return;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.lineWidth = 2;
+                    
+                    this.canvases.push({ canvas, ctx });
+                    
+                    canvas.addEventListener('mouseenter', () => {
+                        canvas.parentElement.classList.add('active');
+                    });
+                    
+                    canvas.addEventListener('mouseleave', () => {
+                        if (!this.isDrawing) {
+                            canvas.parentElement.classList.remove('active');
+                        }
+                    });
+                    
+                    canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+                    canvas.addEventListener('mousemove', this.draw.bind(this));
+                    canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+                    canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+                    
+                    canvas.addEventListener('touchstart', this.handleTouch.bind(this));
+                    canvas.addEventListener('touchmove', this.handleTouch.bind(this));
+                    canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+                    
+                    const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
+                    resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
+                    
+                    canvas.dataset.initialized = 'true';
+                    
+                    // Load existing canvas data if available
+                    const questionId = canvas.dataset.question;
+                    const partId = canvas.dataset.part;
+                    const sectionId = canvas.dataset.section;
+                    
+                    if (this.storage && questionId && partId) {
+                        this.storage.loadCanvasFromSVG(canvas, questionId, partId, sectionId);
+                    }
+                });
+            }
+
+            renderQuestions() {
+                const container = document.getElementById('questionsContainer');
+                const carousel = document.getElementById('sectionCarousel');
+                
+                carousel.style.display = 'none';
+                container.style.display = 'block';
+                container.innerHTML = '';
+
+                this.questions.forEach((question) => {
+                    const questionDiv = document.createElement('div');
+                    questionDiv.className = 'question-container';
+                    questionDiv.setAttribute('data-question', question.id);
+                    questionDiv.innerHTML = `
+                        <div class="question-text">
+                            <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
+                        </div>
+                    `;
+
+                    question.parts.forEach((part) => {
+                        const partDiv = document.createElement('div');
+                        partDiv.className = 'part-container';
+                        partDiv.setAttribute('data-question', question.id);
+                        partDiv.setAttribute('data-part', part.id);
+                        
+                        const partContent = `
+                            <div class="part-text">
+                                ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
+                            </div>
+                            <div class="canvas-area">
+                                <div class="canvas-container">
+                                    <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
+                                    <div class="resize-handle"></div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        partDiv.innerHTML = partContent;
+                        questionDiv.appendChild(partDiv);
+                    });
+
+                    container.appendChild(questionDiv);
+                });
+
+                this.initializeCanvases();
+                this.initializeSidebarTools();
+                this.renderMath();
+                document.getElementById('generatePdf').style.display = 'block';
+            }
+
+            initializeSidebarTools() {
+                this.currentColor = '#000000';
+                this.isErasing = false;
+                
+                document.querySelectorAll('.sidebar-tools .color-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                        
+                        this.currentColor = e.target.dataset.color;
+                        this.isErasing = false;
+                        
+                        const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+                        if (eraserBtn) {
+                            eraserBtn.classList.remove('active');
+                        }
+                        
+                        this.updateToolStatus();
+                        this.updateCanvasCursors();
+                    });
+                });
+                
+                const eraserBtn = document.querySelector('.sidebar-tools .eraser-btn');
+                if (eraserBtn) {
+                    eraserBtn.addEventListener('click', (e) => {
+                        this.isErasing = !this.isErasing;
+                        e.target.classList.toggle('active');
+                        
+                        if (this.isErasing) {
+                            document.querySelectorAll('.sidebar-tools .color-btn').forEach(b => b.classList.remove('active'));
+                        } else {
+                            const blackBtn = document.querySelector('.sidebar-tools .color-btn[data-color="#000000"]');
+                            if (blackBtn) {
+                                blackBtn.classList.add('active');
+                            }
+                        }
+                        
+                        this.updateToolStatus();
+                        this.updateCanvasCursors();
+                    });
+                }
+                
+                this.updateToolStatus();
+            }
+
+            updateToolStatus() {
+                const toolInfo = document.querySelector('.tool-info small');
+                if (!toolInfo) return;
+                
+                if (this.isErasing) {
+                    toolInfo.textContent = 'Eraser mode active - Click canvas to erase';
+                    toolInfo.style.color = '#ee5a24';
+                } else {
+                    toolInfo.textContent = 'Drawing mode active - Click canvas to draw';
+                    toolInfo.style.color = this.currentColor || '#000000';
+                }
+            }
+
+            updateCanvasCursors() {
+                const canvases = document.querySelectorAll('.drawing-canvas');
+                canvases.forEach(canvas => {
+                    if (this.isErasing) {
+                        canvas.classList.add('eraser-mode');
+                    } else {
+                        canvas.classList.remove('eraser-mode');
+                    }
+                });
+            }
+
+            // Keep your existing helper methods
+            processLatexText(text) {
+                return text
+                    .replace(/\\vspace\{[^}]*\}/g, '')
+                    .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
+                    .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
+                    .replace(/\\emph{([^}]*)}/g, '<em>$1</em>')
+                    .replace(/\\href\{([^}]*)\}\{([^}]*)\}/g, (match, url, label) => {
+                        const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+                        if (ytMatch) {
+                            const videoId = ytMatch[1];
+                            return `
+                                <iframe width="640" height="360"
+                                    src="https://www.youtube.com/embed/${videoId}"
+                                    frameborder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowfullscreen>
+                                        /* Sidebar Drawing Tools */
+        .sidebar-tools {
+            padding: 15px;
+            background-color: #ffffff;
+            border-top: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .sidebar-tools h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .sidebar-tools .color-picker {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+            justify-items: center;
+        }
+
+        .sidebar-tools .color-btn {
+            width: 32px;
+            height: 32px;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .sidebar-tools .color-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .sidebar-tools .color-btn.active {
+            border-color: #2c3e50;
+            transform: scale(1.1);
+        }
+
+        .sidebar-tools .color-btn.active::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar-tools .eraser-btn {
+            width: 100%;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-tools .eraser-btn:hover, 
+        .sidebar-tools .eraser-btn.active {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.4);
+        }
+
+        .sidebar-tools .eraser-btn.active {
+            background: linear-gradient(45deg, #ee5a24, #ff6b6b);
+        }
+
+        .canvas-save-btn {
+            width: 100%;
+            background: linear-gradient(45deg, #10ac84, #00d2d3);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 11px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(16, 172, 132, 0.3);
+            margin-bottom: 8px;
+        }
+
+        .canvas-save-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(16, 172, 132, 0.4);
+        }
+
+        .tool-info {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .tool-info small {
+            font-size: 11px;
+        }
+
+        /* Section Carousel and other quiz styles from your original CSS */
+        .section-carousel {
+            background: white;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            position: relative;
+        }<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/bitmaks/cm-web-fonts@latest/fonts.css">
-
-    <title>Interactive LaTeX Quiz</title>
+    <title>Interactive LaTeX Quiz - Student Platform</title>
+    
+    <!-- MathJax configuration -->
     <script>
-                // MathJax configuration
-window.MathJax = {
-  tex: {
-    inlineMath: [['$', '$'], ['\\(', '\\)']],
-    displayMath: [['$$', '$$'], ['\\[', '\\]']],
-    processEscapes: true,
-    processEnvironments: true,
-    prefilterHooks: [
-      function (data) {
-        // Remove all \vspace{...} commands
-        data.math = data.math.replace(/\\vspace\{[^}]*\}/g, '');
-      }
-    ]
-  },
-  options: {
-    skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
-  }
-};
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-
+        window.MathJax = {
+            tex: {
+                inlineMath: [['
     <style>
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
         }
 
         body {
             font-family: "Computer Modern", serif;
-            background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            overflow: hidden;
         }
 
+        /* Login Screen Styles */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 60px 40px;
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+        }
+
+        .login-container h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .login-container p {
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .form-group {
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            color: #4a5568;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* App Container */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* File Sidebar */
+        .file-sidebar {
+            width: 300px;
+            min-width: 250px;
+            background-color: #f8f9fa;
+            border-right: 2px solid #dee2e6;
+            display: flex;
+            flex-direction: column;
+            transition: margin-left 0.3s ease;
+            position: relative;
+            z-index: 10;
+        }
+
+        .file-sidebar.collapsed {
+            margin-left: -300px;
+        }
+
+        /* Sidebar Header */
+        .sidebar-header {
+            padding: 15px;
+            background-color: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header h3 {
+            margin: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .refresh-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background-color: #dee2e6;
+        }
+
+        /* File Tree Container and styling - keeping your existing styles */
+        .file-tree-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 0;
+        }
+
+        .tree-item {
+            margin: 2px 0;
+        }
+
+        .tree-item-content {
+            display: flex;
+            align-items: center;
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+            min-height: 24px;
+        }
+
+        .tree-item-content:hover {
+            background-color: #e9ecef;
+        }
+
+        .tree-toggle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            color: #6c757d;
+            margin-right: 4px;
+        }
+
+        .tree-toggle:hover {
+            color: #495057;
+        }
+
+        .tree-indent {
+            width: 16px;
+            height: 16px;
+            margin-right: 4px;
+        }
+
+        .tree-icon {
+            font-size: 14px;
+            margin-right: 6px;
+            display: flex;
+            align-items: center;
+        }
+
+        .tree-label {
+            flex: 1;
+            font-size: 14px;
+            color: #495057;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .tree-label.clickable-file {
+            cursor: pointer;
+            color: #007bff;
+        }
+
+        .tree-label.clickable-file:hover {
+            color: #0056b3;
+            text-decoration: underline;
+        }
+
+        .tree-label.selected {
+            background-color: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .tree-children {
+            border-left: 1px dotted #dee2e6;
+            margin-left: 8px;
+        }
+
+        .current-file-info {
+            padding: 10px 15px;
+            background-color: #e7f3ff;
+            border-top: 1px solid #bee5eb;
+            font-size: 12px;
+            color: #0c5460;
+            flex-shrink: 0;
+        }
+
+        /* Sidebar Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            left: 300px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 8px;
+            cursor: pointer;
+            border-radius: 0 5px 5px 0;
+            font-size: 14px;
+            z-index: 11;
+            transition: left 0.3s ease;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .sidebar-toggle:hover {
+            background-color: #0056b3;
+        }
+
+        .file-sidebar.collapsed + .sidebar-toggle {
+            left: 0;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            transition: margin-left 0.3s ease;
+        }
+
+        .main-content.expanded {
+            margin-left: 0;
+        }
+
+        /* Your existing container styles */
         .container {
             max-width: 1200px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 30px;
+            margin: 20px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             backdrop-filter: blur(10px);
         }
@@ -69,43 +819,7 @@ window.MathJax = {
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-
-        .file-input-container {
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            margin-bottom: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .file-input-container:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .file-label {
-            display: inline-block;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            padding: 15px 30px;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .file-label:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-        }
-
+        /* Your existing quiz and canvas styles */
         .question-container {
             background: white;
             border-radius: 15px;
@@ -138,7 +852,7 @@ window.MathJax = {
 
         .canvas-area {
             display: flex;
-            gap: 20px;
+            justify-content: center;
             align-items: flex-start;
         }
 
@@ -148,6 +862,12 @@ window.MathJax = {
             border-radius: 8px;
             background: white;
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+            margin: 0 auto;
+        }
+
+        .canvas-container.active {
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.06);
         }
 
         .drawing-canvas {
@@ -158,6 +878,10 @@ window.MathJax = {
             background-image:
                 linear-gradient(to right, lightgrey 1px, transparent 1px),
                 linear-gradient(to bottom, lightgrey 1px, transparent 1px);
+        }
+
+        .drawing-canvas.eraser-mode {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="8" width="16" height="8" rx="2" fill="%23ff6b6b" stroke="%23ffffff" stroke-width="1"/></svg>') 10 10, auto;
         }
 
         .resize-handle {
@@ -178,57 +902,1056 @@ window.MathJax = {
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
         }
 
-        .tools {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            padding: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-            border: 1px solid #e9ecef;
+    <script>
+        // Secure Authentication System
+        class SecureAuth {
+            constructor() {
+                this.currentUser = null;
+            }
+
+            async hashEmail(email) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(email.toLowerCase());
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
+            async login(email, password) {
+                const hashedEmail = await this.hashEmail(email);
+                
+                // In production, you'd validate against a secure backend
+                // For demo purposes, we accept any password
+                this.currentUser = {
+                    id: hashedEmail,
+                    displayName: email.split('@')[0],
+                    email: email // Only stored temporarily for display
+                };
+                
+                return this.currentUser;
+            }
+
+            logout() {
+                this.currentUser = null;
+            }
+
+            getCurrentUser() {
+                return this.currentUser;
+            }
         }
 
-        .color-picker {
+        // SVG Canvas Storage System
+        class CanvasStorage {
+            constructor(userId) {
+                this.userId = userId;
+                this.canvasData = {};
+            }
+
+            getCanvasKey(questionId, partId, sectionId = null) {
+                return sectionId !== null ? 
+                    `section_${sectionId}_q${questionId}_p${partId}` : 
+                    `q${questionId}_p${partId}`;
+            }
+
+            saveCanvasAsSVG(canvas, questionId, partId, sectionId = null) {
+                const key = this.getCanvasKey(questionId, partId, sectionId);
+                const svgData = this.canvasToSVG(canvas);
+                this.canvasData[key] = svgData;
+                
+                // In production, you'd send this to your backend
+                console.log(`Saved canvas ${key} as SVG for user ${this.userId}`);
+                return svgData;
+            }
+
+            loadCanvasFromSVG(canvas, questionId, partId, sectionId = null) {
+                const key = this.getCanvasKey(questionId, partId, sectionId);
+                const svgData = this.canvasData[key];
+                
+                if (svgData) {
+                    this.loadSVGToCanvas(canvas, svgData);
+                    return true;
+                }
+                return false;
+            }
+
+            canvasToSVG(canvas) {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', canvas.width);
+                svg.setAttribute('height', canvas.height);
+                svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                
+                // Convert canvas to data URL and embed as image in SVG
+                const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                image.setAttribute('width', canvas.width);
+                image.setAttribute('height', canvas.height);
+                image.setAttribute('href', canvas.toDataURL());
+                
+                svg.appendChild(image);
+                return new XMLSerializer().serializeToString(svg);
+            }
+
+            loadSVGToCanvas(canvas, svgData) {
+                const img = new Image();
+                img.onload = function() {
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                };
+                
+                // Extract the image data from SVG
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svgData, 'image/svg+xml');
+                const imageElement = svgDoc.querySelector('image');
+                if (imageElement) {
+                    img.src = imageElement.getAttribute('href');
+                }
+            }
+
+            exportAllCanvases() {
+                const exportData = {
+                    userId: this.userId,
+                    timestamp: new Date().toISOString(),
+                    canvases: this.canvasData
+                };
+                
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `canvases_${this.userId}_${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            importCanvases(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            if (data.canvases) {
+                                this.canvasData = { ...this.canvasData, ...data.canvases };
+                                resolve(Object.keys(data.canvases).length);
+                            } else {
+                                reject(new Error('Invalid canvas data format'));
+                            }
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                });
+            }
+
+            getAllCanvasKeys() {
+                return Object.keys(this.canvasData);
+            }
+        }
+
+        // Enhanced QuizApp with Authentication and SVG Storage
+        class QuizApp {
+            constructor() {
+                this.auth = new SecureAuth();
+                this.storage = null;
+                this.questions = [];
+                this.sections = [];
+                this.currentSectionIndex = 0;
+                this.canvases = [];
+                this.currentColor = '#000000';
+                this.isErasing = false;
+                this.isDrawing = false;
+                this.lastX = 0;
+                this.lastY = 0;
+                this.fileName = '';
+                this.fileTree = [];
+                this.currentFile = null;
+                this.init();
+            }
+
+            async init() {
+                // Show login screen initially
+                this.showLoginScreen();
+                
+                // Setup login form
+                document.querySelector('.login-form').addEventListener('submit', this.handleLogin.bind(this));
+                
+                // Setup main app events (but don't initialize until logged in)
+                this.setupMainAppEvents();
+            }
+
+            showLoginScreen() {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+
+            hideLoginScreen() {
+                document.getElementById('loginOverlay').style.display = 'none';
+            }
+
+            async handleLogin(event) {
+                event.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    const user = await this.auth.login(email, password);
+                    this.storage = new CanvasStorage(user.id);
+                    
+                    // Update UI with user info
+                    document.getElementById('userDisplay').textContent = user.displayName;
+                    
+                    // Hide login and show main app
+                    this.hideLoginScreen();
+                    
+                    // Initialize main app
+                    await this.initializeMainApp();
+                    
+                } catch (error) {
+                    alert('Login failed: ' + error.message);
+                }
+            }
+
+            logout() {
+                this.auth.logout();
+                this.storage = null;
+                
+                // Clear form
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
+                
+                // Show login screen
+                this.showLoginScreen();
+                
+                // Clear any loaded content
+                document.getElementById('questionsContainer').innerHTML = '';
+                document.getElementById('sectionCarousel').style.display = 'none';
+                document.getElementById('generatePdf').style.display = 'none';
+            }
+
+            async initializeMainApp() {
+                // Initialize file tree
+                await this.initializeFileTree();
+                
+                // Setup canvas storage controls
+                this.setupCanvasStorageControls();
+                
+                // Setup PDF generation
+                document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
+            }
+
+            setupMainAppEvents() {
+                // Setup sidebar toggle
+                const sidebarToggle = document.getElementById('sidebarToggle');
+                if (sidebarToggle) {
+                    sidebarToggle.addEventListener('click', () => this.toggleSidebar());
+                }
+                
+                // Setup refresh button
+                const refreshBtn = document.getElementById('refreshTree');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', async () => {
+                        refreshBtn.innerHTML = '⟳';
+                        refreshBtn.disabled = true;
+                        await this.initializeFileTree();
+                        refreshBtn.innerHTML = '🔄';
+                        refreshBtn.disabled = false;
+                    });
+                }
+            }
+
+            setupCanvasStorageControls() {
+                // Save all canvases
+                document.getElementById('saveCanvases').addEventListener('click', () => {
+                    if (this.storage) {
+                        this.storage.exportAllCanvases();
+                    }
+                });
+
+                // Load canvases
+                document.getElementById('loadCanvases').addEventListener('click', () => {
+                    document.getElementById('canvasFileInput').click();
+                });
+
+                // Handle file input
+                document.getElementById('canvasFileInput').addEventListener('change', async (e) => {
+                    const file = e.target.files[0];
+                    if (file && this.storage) {
+                        try {
+                            const count = await this.storage.importCanvases(file);
+                            alert(`Successfully imported ${count} canvas drawings!`);
+                            
+                            // Reload canvases for current file
+                            this.reloadAllCanvases();
+                        } catch (error) {
+                            alert('Failed to import canvases: ' + error.message);
+                        }
+                    }
+                });
+            }
+
+            reloadAllCanvases() {
+                // Reload all visible canvases from storage
+                const canvases = document.querySelectorAll('.drawing-canvas');
+                canvases.forEach(canvas => {
+                    const questionId = canvas.dataset.question;
+                    const partId = canvas.dataset.part;
+                    const sectionId = canvas.dataset.section;
+                    
+                    if (this.storage && questionId && partId) {
+                        this.storage.loadCanvasFromSVG(canvas, questionId, partId, sectionId);
+                    }
+                });
+            }G
+            // Your existing file tree methods
+            async getFileTreeFromRepo(path = 'latex-files') {
+                const apiUrl = `https://api.github.com/repos/tolverne/papertrail/contents/${path}`;
+                try {
+                    const response = await fetch(apiUrl);
+                    if (!response.ok) {
+                        console.error('Failed to fetch files:', response.status);
+                        return [];
+                    }
+                    const items = await response.json();
+                    
+                    const processedItems = await Promise.all(
+                        items.map(async (item) => {
+                            const processedItem = {
+                                name: item.name,
+                                path: item.path,
+                                type: item.type,
+                                download_url: item.download_url,
+                                isExpanded: false
+                            };
+                            
+                            if (item.type === 'dir') {
+                                processedItem.children = await this.getFileTreeFromRepo(item.path);
+                            }
+                            
+                            return processedItem;
+                        })
+                    );
+                    
+                    return processedItems;
+                } catch (error) {
+                    console.error('Error fetching file tree:', error);
+                    return [];
+                }
+            }
+
+            async initializeFileTree() {
+                const fileTree = await this.getFileTreeFromRepo();
+                this.fileTree = fileTree;
+                this.renderFileTree();
+            }
+
+            renderFileTree() {
+                const sidebar = document.getElementById('fileSidebar');
+                if (!sidebar) return;
+                
+                const treeContainer = sidebar.querySelector('.file-tree-container');
+                if (!treeContainer) return;
+                
+                treeContainer.innerHTML = this.renderTreeNode(this.fileTree, 0);
+                this.attachFileTreeEventListeners();
+            }
+
+            renderTreeNode(items, level = 0) {
+                if (!items || items.length === 0) return '';
+                
+                return items.map(item => {
+                    const indent = level * 20;
+                    const hasChildren = item.type === 'dir' && item.children && item.children.length > 0;
+                    const isTexFile = item.name.endsWith('.tex');
+                    
+                    let html = `
+                        <div class="tree-item" data-path="${item.path}" data-type="${item.type}" style="padding-left: ${indent}px;">
+                            <div class="tree-item-content">
+                    `;
+                    
+                    if (hasChildren) {
+                        html += `
+                            <span class="tree-toggle ${item.isExpanded ? 'expanded' : 'collapsed'}" data-path="${item.path}">
+                                ${item.isExpanded ? '▼' : '▶'}
+                            </span>
+                        `;
+                    } else {
+                        html += `<span class="tree-indent"></span>`;
+                    }
+                    
+                    const icon = this.getFileIcon(item);
+                    const clickable = isTexFile ? 'clickable-file' : '';
+                    
+                    html += `
+                                <span class="tree-icon">${icon}</span>
+                                <span class="tree-label ${clickable}" data-path="${item.path}" data-download-url="${item.download_url || ''}">
+                                    ${item.name}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (hasChildren && item.isExpanded) {
+                        html += `<div class="tree-children">${this.renderTreeNode(item.children, level + 1)}</div>`;
+                    }
+                    
+                    return html;
+                }).join('');
+            }
+
+            getFileIcon(item) {
+                if (item.type === 'dir') {
+                    return item.isExpanded ? '📂' : '📁';
+                } else if (item.name.endsWith('.tex')) {
+                    return '📄';
+                } else {
+                    return '📋';
+                }
+            }
+
+            attachFileTreeEventListeners() {
+                const treeContainer = document.querySelector('.file-tree-container');
+                
+                treeContainer.addEventListener('click', (e) => {
+                    const toggle = e.target.closest('.tree-toggle');
+                    if (toggle) {
+                        const path = toggle.dataset.path;
+                        this.toggleFolder(path);
+                        return;
+                    }
+                    
+                    const fileLabel = e.target.closest('.clickable-file');
+                    if (fileLabel) {
+                        const path = fileLabel.dataset.path;
+                        const downloadUrl = fileLabel.dataset.downloadUrl;
+                        this.loadLatexFileFromTree(path, downloadUrl);
+                        return;
+                    }
+                });
+            }
+
+            toggleFolder(path) {
+                const item = this.findItemByPath(this.fileTree, path);
+                if (item) {
+                    item.isExpanded = !item.isExpanded;
+                    this.renderFileTree();
+                }
+            }
+
+            findItemByPath(items, targetPath) {
+                for (const item of items) {
+                    if (item.path === targetPath) {
+                        return item;
+                    }
+                    if (item.children) {
+                        const found = this.findItemByPath(item.children, targetPath);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            }
+
+            async loadLatexFileFromTree(path, downloadUrl) {
+                if (!downloadUrl) {
+                    console.error('No download URL available for file:', path);
+                    return;
+                }
+                
+                document.getElementById('loading').style.display = 'block';
+                
+                document.querySelectorAll('.tree-label').forEach(label => {
+                    label.classList.remove('selected');
+                });
+                document.querySelector(`[data-path="${path}"]`).classList.add('selected');
+                
+                try {
+                    const response = await fetch(downloadUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch file: ${response.status}`);
+                    }
+                    
+                    const content = await response.text();
+                    this.fileName = path.split('/').pop();
+                    this.parseLatexFile(content);
+                    
+                    this.currentFile = {
+                        name: this.fileName,
+                        path: path
+                    };
+                    
+                    this.updateFileInfo();
+                    
+                } catch (error) {
+                    console.error('Error loading LaTeX file:', error);
+                    alert('Failed to load the selected file. Please try again.');
+                    document.getElementById('loading').style.display = 'none';
+                }
+            }
+
+            updateFileInfo() {
+                const fileInfo = document.getElementById('currentFileInfo');
+                if (fileInfo && this.currentFile) {
+                    fileInfo.textContent = `Current file: ${this.currentFile.name}`;
+                    fileInfo.style.display = 'block';
+                }
+            }
+
+            toggleSidebar() {
+                const sidebar = document.getElementById('fileSidebar');
+                const mainContent = document.getElementById('mainContent');
+                const toggleBtn = document.getElementById('sidebarToggle');
+                
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    mainContent.classList.remove('expanded');
+                    toggleBtn.textContent = '◀';
+                    toggleBtn.title = 'Hide file browser';
+                } else {
+                    sidebar.classList.add('collapsed');
+                    mainContent.classList.add('expanded');
+                    toggleBtn.textContent = '▶';
+                    toggleBtn.title = 'Show file browser';
+                }
+            }
+
+            // Auto-save canvas when drawing
+            autoSaveCanvas(canvas) {
+                const questionId = canvas.dataset.question;
+                const partId = canvas.dataset.part;
+                const sectionId = canvas.dataset.section;
+                
+                if (this.storage && questionId && partId) {
+                    this.storage.saveCanvasAsSVG(canvas, questionId, partId, sectionId);
+                }
+            }
+
+            // Enhanced drawing methods with auto-save
+            startDrawing(e) {
+                this.isDrawing = true;
+                const rect = e.target.getBoundingClientRect();
+                this.lastX = e.clientX - rect.left;
+                this.lastY = e.clientY - rect.top;
+            }
+
+            draw(e) {
+                if (!this.isDrawing) return;
+                
+                const canvas = e.target;
+                const ctx = canvas.getContext('2d');
+                const rect = canvas.getBoundingClientRect();
+                
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                ctx.beginPath();
+                ctx.moveTo(this.lastX, this.lastY);
+                ctx.lineTo(currentX, currentY);
+                
+                if (this.isErasing) {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.lineWidth = 20;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                } else {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = this.currentColor;
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                }
+                
+                ctx.stroke();
+                
+                this.lastX = currentX;
+                this.lastY = currentY;
+                
+                // Auto-save with debouncing
+                clearTimeout(this.autoSaveTimeout);
+                this.autoSaveTimeout = setTimeout(() => {
+                    this.autoSaveCanvas(canvas);
+                }, 1000);
+            }
+
+            stopDrawing() {
+                if (this.isDrawing) {
+                    this.isDrawing = false;
+                    document.querySelectorAll('.canvas-container').forEach(container => {
+                        container.classList.remove('active');
+                    });
+                }
+            }
+
+            handleTouch(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                                 e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                e.target.dispatchEvent(mouseEvent);
+            }
+
+            // Continue with your existing LaTeX parsing and rendering methods...
+            parseLatexFile(content) {
+                this.sections = this.parseSections(content);
+                
+                if (this.sections.length > 0) {
+                    this.renderSectionCarousel();
+                } else {
+                    this.questions = this.parseQuestionsFromContent(content);
+                    this.renderQuestions();
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+            }
+
+            parseSections(content) {
+                const sections = [];
+                const sectionRegex = /\\section\*?\{([^}]+)\}/g;
+                const sectionMatches = [...content.matchAll(sectionRegex)];
+                
+                if (sectionMatches.length === 0) {
+                    return [];
+                }
+                
+                sectionMatches.forEach((match, index) => {
+                    const sectionTitle = match[1];
+                    const sectionStart = match.index;
+                    
+                    if (index === 0 && sectionStart > 0) {
+                        const introContent = content.substring(0, sectionStart);
+                        const introQuestions = this.parseQuestionsFromContent(introContent);
+                        if (introQuestions.length > 0) {
+                            sections.push({
+                                title: 'Introduction',
+                                questions: introQuestions,
+                                isIntro: true
+                            });
+                        }
+                    }
+                    
+                    const nextSectionStart = index < sectionMatches.length - 1 
+                        ? sectionMatches[index + 1].index 
+                        : content.length;
+                    
+                    const sectionContent = content.substring(sectionStart, nextSectionStart);
+                    const questions = this.parseQuestionsFromContent(sectionContent);
+                    
+                    sections.push({
+                        title: sectionTitle,
+                        questions: questions,
+                        content: sectionContent
+                    });
+                });
+                
+                return sections;
+            }
+
+            parseQuestionsFromContent(content) {
+                const questions = [];
+                const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
+                if (!questionsMatch) {
+                    return questions;
+                }
+
+                const questionsContent = questionsMatch[1];
+                const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
+                
+                questionBlocks.forEach((block, index) => {
+                    const question = { id: index + 1, text: '', parts: [] };
+                    
+                    const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
+                    
+                    if (partsMatch) {
+                        question.text = partsMatch[1].trim();
+                        const partsContent = partsMatch[2];
+                        
+                        const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
+                        parts.forEach((partText, partIndex) => {
+                            question.parts.push({
+                                id: partIndex + 1,
+                                text: partText.trim()
+                            });
+                        });
+                    } else {
+                        question.text = block.trim();
+                        question.parts.push({
+                            id: 1,
+                            text: ''
+                        });
+                    }
+                    
+                    questions.push(question);
+                });
+
+                return questions;
+            }
+    </script>
+</body>
+</html>, '
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            width: 90%;
+            max-width: 1200px;
+            min-height: 600px;
+        }
+
+        .login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .login-screen h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .login-screen p {
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-group {
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            color: #4a5568;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .main-interface {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h2 {
+            font-size: 1.5rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f7fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        .file-list {
+            list-style: none;
+        }
+
+        .file-item {
+            padding: 12px;
+            background: white;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .file-item:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .file-item.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .canvas-toolbar {
+            background: #f7fafc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+
+        .tool-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .tool-btn:hover, .tool-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #drawingCanvas {
+            border: none;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .color-palette {
+            display: flex;
+            gap: 5px;
         }
 
         .color-btn {
-            width: 40px;
-            height: 40px;
-            border: 3px solid transparent;
+            width: 30px;
+            height: 30px;
+            border: 2px solid #e2e8f0;
             border-radius: 50%;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .color-btn:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
         .color-btn.active {
-            border-color: #2c3e50;
+            border-color: #4a5568;
             transform: scale(1.1);
         }
 
-        .eraser-btn {
-            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        .save-status {
+            background: #48bb78;
             color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            box-shadow: 0 3px 8px rgba(255, 107, 107, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        .carousel-header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            position: relative;
         }
 
-        .eraser-btn:hover, .eraser-btn.active {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 12px rgba(255, 107, 107, 0.4);
+        .section-tabs {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .section-tab {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .section-tab:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .section-tab.active {
+            background: white;
+            color: #667eea;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .carousel-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-left: 20px;
+        }
+
+        .carousel-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .carousel-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .carousel-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .section-counter {
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .carousel-body {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .carousel-container {
+            display: flex;
+            transition: transform 0.4s ease-in-out;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .section-title {
+            font-size: 2em;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            text-align: center;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+        }
+
+        .keyboard-hint {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
         }
 
         .generate-pdf-btn {
@@ -258,472 +1981,1097 @@ window.MathJax = {
             color: #667eea;
             font-weight: 600;
         }
+    </style>
+</head>
+<body>
+    <!-- Login Screen Overlay -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-container">
+            <h1>Mathematics Platform</h1>
+            <p>Secure access to your LaTeX workspace</p>
+            
+            <form class="login-form" onsubmit="login(event)">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required placeholder="your.email@school.edu">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="Enter your password">
+                </div>
+                
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+        </div>
+    </div>
 
-        @media (max-width: 768px) {
-            .canvas-area {
-                flex-direction: column;
+    <!-- Main App Interface -->
+    <div class="app-container">
+        <!-- File Browser Sidebar -->
+        <div id="fileSidebar" class="file-sidebar">
+            <div class="sidebar-header">
+                <div>
+                    <h3>LaTeX Files</h3>
+                    <div class="user-info">
+                        <span id="userDisplay">Student</span>
+                        <button class="logout-btn" onclick="logout()">Sign Out</button>
+                    </div>
+                </div>
+                <button id="refreshTree" class="refresh-btn" title="Refresh file tree">🔄</button>
+            </div>
+            <div class="file-tree-container">
+                <!-- File tree will be rendered here -->
+            </div>
+            <div id="currentFileInfo" class="current-file-info" style="display: none;">
+                <!-- Current file info will be shown here -->
+            </div>
+            
+            <!-- Global Drawing Tools -->
+            <div class="sidebar-tools">
+                <h4>Drawing Tools</h4>
+                <div class="color-picker">
+                    <div class="color-btn active" style="background-color: #000000;" data-color="#000000" title="Black"></div>
+                    <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc" title="Blue"></div>
+                    <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000" title="Red"></div>
+                    <div class="color-btn" style="background-color: #00cc00;" data-color="#00cc00" title="Green"></div>
+                    <div class="color-btn" style="background-color: #ff6600;" data-color="#ff6600" title="Orange"></div>
+                    <div class="color-btn" style="background-color: #9900cc;" data-color="#9900cc" title="Purple"></div>
+                </div>
+                <button class="eraser-btn">🧽 Eraser</button>
+                
+                <!-- Canvas Storage Controls -->
+                <div class="storage-controls">
+                    <button class="canvas-save-btn" id="saveCanvases">💾 Save All Canvases</button>
+                    <button class="canvas-save-btn" id="loadCanvases">📁 Load Canvases</button>
+                    <input type="file" id="canvasFileInput" accept=".json" style="display: none;">
+                </div>
+                
+                <div class="tool-info">
+                    <small>Click any canvas to start drawing</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Toggle Button -->
+        <button id="sidebarToggle" class="sidebar-toggle" title="Hide file browser">◀</button>
+        
+        <!-- Main Content Area -->
+        <div id="mainContent" class="main-content">
+            <div class="container">
+                <div class="header">
+                    <h1>Mathematics: Analysis and Approaches</h1>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <p>🔄 Processing LaTeX file...</p>
+                </div>
+
+                <!-- Section Carousel -->
+                <div id="sectionCarousel" class="section-carousel" style="display: none;">
+                    <div class="carousel-header">
+                        <div class="section-tabs" id="sectionTabs">
+                            <!-- Section tabs will be rendered here -->
+                        </div>
+                        <div class="carousel-controls">
+                            <button id="prevSection" class="carousel-btn" title="Previous section">‹</button>
+                            <span id="sectionCounter" class="section-counter">1 / 1</span>
+                            <button id="nextSection" class="carousel-btn" title="Next section">›</button>
+                        </div>
+                    </div>
+                    <div class="carousel-body">
+                        <div class="carousel-container" id="carouselContainer">
+                            <!-- Section slides will be rendered here -->
+                        </div>
+                    </div>
+                    <div class="keyboard-hint">
+                        Use ← → arrow keys to navigate sections
+                    </div>
+                </div>
+
+                <div id="questionsContainer"></div>
+
+                <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
+                    📄 Generate PDF
+                </button>
+                <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
+                    <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
+                    <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Security and user management
+        let currentUser = null;
+        let currentFile = null;
+        
+        // Canvas variables
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentTool = 'draw';
+        let currentColor = '#000';
+        let currentBrushSize = 3;
+
+        // User data storage (in-memory for demo)
+        let userData = {};
+
+        // Sample TeX files for demo
+        const sampleTexFiles = [
+            'algebra_basics.tex',
+            'geometry_proofs.tex',
+            'calculus_intro.tex',
+            'statistics_overview.tex',
+            'trigonometry.tex'
+        ];
+
+        // Hash function for email (simple demo implementation)
+        async function hashEmail(email) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(email.toLowerCase());
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Login function
+        async function login(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Hash the email for secure storage
+            const hashedEmail = await hashEmail(email);
+            
+            // In a real implementation, you'd validate against a secure backend
+            // For demo purposes, we'll accept any password
+            currentUser = {
+                id: hashedEmail,
+                displayName: email.split('@')[0]
+            };
+
+            // Initialize user data if it doesn't exist
+            if (!userData[currentUser.id]) {
+                userData[currentUser.id] = {};
+                sampleTexFiles.forEach(file => {
+                    userData[currentUser.id][file] = null; // No canvas data yet
+                });
+            }
+
+            showMainInterface();
+        }
+
+        // Show main interface
+        function showMainInterface() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainInterface').style.display = 'flex';
+            document.getElementById('userDisplay').textContent = currentUser.displayName;
+            
+            initializeCanvas();
+            populateFileList();
+        }
+
+        // Logout function
+        function logout() {
+            currentUser = null;
+            currentFile = null;
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('mainInterface').style.display = 'none';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // Initialize canvas
+        function initializeCanvas() {
+            canvas = document.getElementById('drawingCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Canvas event listeners
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch events for mobile
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Reload current canvas if exists
+            if (currentFile && userData[currentUser.id][currentFile]) {
+                loadCanvasFromSVG(userData[currentUser.id][currentFile]);
+            }
+        }
+
+        // Populate file list
+        function populateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            sampleTexFiles.forEach(file => {
+                const li = document.createElement('li');
+                li.className = 'file-item';
+                li.textContent = file;
+                li.onclick = () => selectFile(file);
+                fileList.appendChild(li);
+            });
+        }
+
+        // Select file
+        function selectFile(filename) {
+            // Save current canvas before switching
+            if (currentFile) {
+                saveCurrentCanvas();
             }
             
-            .tools {
-                align-self: center;
+            currentFile = filename;
+            
+            // Update UI
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent === filename) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Load canvas for this file
+            loadCanvas();
+        }
+
+        // Drawing functions
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.lineWidth = currentBrushSize;
+            ctx.lineCap = 'round';
+            
+            if (currentTool === 'draw') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentColor;
+            } else if (currentTool === 'erase') {
+                ctx.globalCompositeOperation = 'destination-out';
             }
             
-            .color-picker {
-                justify-content: center;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            // Auto-save after drawing
+            clearTimeout(window.autoSaveTimeout);
+            window.autoSaveTimeout = setTimeout(() => {
+                saveCurrentCanvas();
+                showSaveStatus();
+            }, 1000);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                            e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        // Tool functions
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('[data-tool]').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.tool === tool) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            canvas.style.cursor = tool === 'draw' ? 'crosshair' : 'grab';
+        }
+
+        function setColor(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.style.background === color) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function setBrushSize(size) {
+            currentBrushSize = parseInt(size);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            saveCurrentCanvas();
+            showSaveStatus();
+        }
+
+        // Canvas saving/loading as SVG
+        function saveCurrentCanvas() {
+            if (!currentFile || !currentUser) return;
+            
+            // Convert canvas to SVG
+            const svgData = canvasToSVG();
+            userData[currentUser.id][currentFile] = svgData;
+            
+            // In a real implementation, you'd send this to your backend
+            console.log(`Saved canvas for ${currentFile} as SVG`);
+        }
+
+        function canvasToSVG() {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', canvas.width);
+            svg.setAttribute('height', canvas.height);
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            
+            // Convert canvas to data URL and embed as image in SVG
+            const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            image.setAttribute('width', canvas.width);
+            image.setAttribute('height', canvas.height);
+            image.setAttribute('href', canvas.toDataURL());
+            
+            svg.appendChild(image);
+            
+            return new XMLSerializer().serializeToString(svg);
+        }
+
+        function loadCanvas() {
+            if (!currentFile || !userData[currentUser.id][currentFile]) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
             }
+            
+            loadCanvasFromSVG(userData[currentUser.id][currentFile]);
+        }
+
+        function loadCanvasFromSVG(svgData) {
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            
+            // Extract the image data from SVG
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgData, 'image/svg+xml');
+            const imageElement = svgDoc.querySelector('image');
+            if (imageElement) {
+                img.src = imageElement.getAttribute('href');
+            }
+        }
+
+        function showSaveStatus() {
+            const status = document.getElementById('saveStatus');
+            status.textContent = 'Saved';
+            status.style.background = '#48bb78';
+            
+            setTimeout(() => {
+                status.textContent = 'Auto-save enabled';
+                status.style.background = '#718096';
+            }, 2000);
+        }
+
+        // Download SVG function (bonus feature)
+        function downloadSVG() {
+            if (!currentFile) return;
+            
+            const svgData = canvasToSVG();
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.replace('.tex', '_canvas.svg');
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>], ['\\(', '\\)']],
+                displayMath: [['$', '$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true,
+                prefilterHooks: [
+                    function (data) {
+                        data.math = data.math.replace(/\\vspace\{[^}]*\}/g, '');
+                    }
+                ]
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            width: 90%;
+            max-width: 1200px;
+            min-height: 600px;
+        }
+
+        .login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        .login-screen h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .login-screen p {
+            color: #718096;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .form-group {
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            color: #4a5568;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .main-interface {
+            display: none;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #4a5568;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h2 {
+            font-size: 1.5rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f7fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+        }
+
+        .file-list {
+            list-style: none;
+        }
+
+        .file-item {
+            padding: 12px;
+            background: white;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .file-item:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .file-item.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .canvas-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .canvas-toolbar {
+            background: #f7fafc;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .tool-btn {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .tool-btn:hover, .tool-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #drawingCanvas {
+            border: none;
+            cursor: crosshair;
+            display: block;
+        }
+
+        .color-palette {
+            display: flex;
+            gap: 5px;
+        }
+
+        .color-btn {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .color-btn.active {
+            border-color: #4a5568;
+            transform: scale(1.1);
+        }
+
+        .save-status {
+            background: #48bb78;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Mathematics: Analysis and Approaches</h1>
-        </div>
-        <div class="name-input-container" style="margin-bottom: 30px; text-align: center;">
-            <label for="studentName" style="font-size: 1.2em; font-weight: 600; color: #2c3e50;">
-                🧑 Your Name:
-            </label><br>
-            <input type="text" id="studentName" placeholder="Enter your name" 
-                   style="margin-top: 10px; padding: 10px 20px; font-size: 1em; border: 2px solid #dee2e6; border-radius: 10px; width: 60%; max-width: 400px;">
-        </div>
-        
-        <div class="file-input-container">
-            <input type="file" id="fileInput" class="file-input" accept=".tex,.txt">
-            <label for="fileInput" class="file-label">
-                📁 Choose LaTeX File
-            </label>
-            <p style="margin-top: 15px; color: #6c757d;">Select a .tex file containing your quiz questions</p>
-        </div>
-
-        <div class="loading" id="loading">
-            <p>🔄 Processing LaTeX file...</p>
+        <!-- Login Screen -->
+        <div id="loginScreen" class="login-screen">
+            <h1>Student Canvas Platform</h1>
+            <p>Secure access to your drawing workspace</p>
+            
+            <form class="login-form" onsubmit="login(event)">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required placeholder="your.email@school.edu">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="Enter your password">
+                </div>
+                
+                <button type="submit" class="btn">Sign In</button>
+            </form>
         </div>
 
-        <div id="questionsContainer"></div>
+        <!-- Main Interface -->
+        <div id="mainInterface" class="main-interface">
+            <div class="header">
+                <h2>Canvas Workspace</h2>
+                <div class="user-info">
+                    <span id="userDisplay">Student</span>
+                    <button class="logout-btn" onclick="logout()">Sign Out</button>
+                </div>
+            </div>
 
-        <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
-            📄 Generate PDF
-        </button>
-        <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
-            <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
-            <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
+            <div class="main-content">
+                <div class="sidebar">
+                    <h3>TeX Files</h3>
+                    <ul class="file-list" id="fileList">
+                        <!-- Files will be populated here -->
+                    </ul>
+                </div>
+
+                <div class="canvas-area">
+                    <div class="canvas-toolbar">
+                        <button class="tool-btn active" data-tool="draw" onclick="setTool('draw')">Draw</button>
+                        <button class="tool-btn" data-tool="erase" onclick="setTool('erase')">Erase</button>
+                        <button class="tool-btn" onclick="clearCanvas()">Clear</button>
+                        
+                        <div class="color-palette">
+                            <div class="color-btn active" style="background: #000" onclick="setColor('#000')"></div>
+                            <div class="color-btn" style="background: #e53e3e" onclick="setColor('#e53e3e')"></div>
+                            <div class="color-btn" style="background: #38a169" onclick="setColor('#38a169')"></div>
+                            <div class="color-btn" style="background: #3182ce" onclick="setColor('#3182ce')"></div>
+                            <div class="color-btn" style="background: #805ad5" onclick="setColor('#805ad5')"></div>
+                        </div>
+
+                        <input type="range" id="brushSize" min="1" max="20" value="3" onchange="setBrushSize(this.value)">
+                        
+                        <div class="save-status" id="saveStatus">Saved</div>
+                    </div>
+
+                    <div class="canvas-container">
+                        <canvas id="drawingCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // Security and user management
+        let currentUser = null;
+        let currentFile = null;
+        
+        // Canvas variables
+        let canvas, ctx;
+        let isDrawing = false;
+        let currentTool = 'draw';
+        let currentColor = '#000';
+        let currentBrushSize = 3;
 
+        // User data storage (in-memory for demo)
+        let userData = {};
 
-        class QuizApp {
-            constructor() {
-                this.questions = [];
-                this.canvases = [];
-                this.currentColor = '#000000';
-                this.isErasing = false;
-                this.isDrawing = false;
-                this.lastX = 0;
-                this.lastY = 0;
-                this.studentName = '';
-                this.fileName = '';
-                this.init();
-            }
+        // Sample TeX files for demo
+        const sampleTexFiles = [
+            'algebra_basics.tex',
+            'geometry_proofs.tex',
+            'calculus_intro.tex',
+            'statistics_overview.tex',
+            'trigonometry.tex'
+        ];
 
-            init() {
-                document.getElementById('fileInput').addEventListener('change', this.handleFileUpload.bind(this));
-                document.getElementById('generatePdf').addEventListener('click', this.generatePDF.bind(this));
-            }
+        // Hash function for email (simple demo implementation)
+        async function hashEmail(email) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(email.toLowerCase());
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
 
+        // Login function
+        async function login(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
+            // Hash the email for secure storage
+            const hashedEmail = await hashEmail(email);
+            
+            // In a real implementation, you'd validate against a secure backend
+            // For demo purposes, we'll accept any password
+            currentUser = {
+                id: hashedEmail,
+                displayName: email.split('@')[0]
+            };
 
-            handleFileUpload(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                this.fileName=file.name;
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const content = e.target.result;
-                    this.parseLatexFile(content);
-                };
-                reader.readAsText(file);
-
-                document.getElementById('loading').style.display = 'block';
-            }
-
-            parseLatexFile(content) {
-                const questions = [];
-                
-                // Extract questions using regex
-                const questionsMatch = content.match(/\\begin{questions}(.*?)\\end{questions}/s);
-                if (!questionsMatch) {
-                    alert('No questions found in the LaTeX file. Please check the format.');
-                    document.getElementById('loading').style.display = 'none';
-                    return;
-                }
-
-                const questionsContent = questionsMatch[1];
-                
-                // Split by \question but keep the \question text
-                const questionBlocks = questionsContent.split(/\\question\s+/).filter(block => block.trim());
-                
-                questionBlocks.forEach((block, index) => {
-                    const question = { id: index + 1, text: '', parts: [] };
-                    
-                    // Check if this question has parts
-                    const partsMatch = block.match(/(.*?)\\begin{parts}(.*?)\\end{parts}/s);
-                    
-                    if (partsMatch) {
-                        question.text = partsMatch[1].trim();
-                        const partsContent = partsMatch[2];
-                        
-                        // Extract parts
-                        const parts = partsContent.split(/\\part\s+/).filter(part => part.trim());
-                        parts.forEach((partText, partIndex) => {
-                            question.parts.push({
-                                id: partIndex + 1,
-                                text: partText.trim()
-                            });
-                        });
-                    } else {
-                        // Question without parts
-                        question.text = block.trim();
-                        question.parts.push({
-                            id: 1,
-                            text: ''
-                        });
-                    }
-                    
-                    questions.push(question);
-                });
-
-                this.questions = questions;
-                this.renderQuestions();
-                document.getElementById('loading').style.display = 'none';
-            }
-
-            renderQuestions() {
-                const container = document.getElementById('questionsContainer');
-                container.innerHTML = '';
-
-                this.questions.forEach((question) => {
-                    const questionDiv = document.createElement('div');
-                    questionDiv.className = 'question-container';
-                    questionDiv.setAttribute('data-question', question.id);
-                    questionDiv.innerHTML = `
-                        <div class="question-text">
-                            <strong>Question ${question.id}:</strong> ${this.processLatexText(question.text)}
-                        </div>
-                    `;
-
-                    question.parts.forEach((part) => {
-                        const partDiv = document.createElement('div');
-                        partDiv.className = 'part-container';
-                        partDiv.setAttribute('data-question', question.id);
-                        partDiv.setAttribute('data-part', part.id);
-                        
-                        const partContent = `
-                            <div class="part-text">
-                                ${part.text ? `<strong>Part ${part.id}:</strong> ${this.processLatexText(part.text)}` : ''}
-                            </div>
-                            <div class="canvas-area">
-                                <div class="canvas-container">
-                                    <canvas class="drawing-canvas" width="400" height="300" data-question="${question.id}" data-part="${part.id}"></canvas>
-                                    <div class="resize-handle"></div>
-                                </div>
-                                <div class="tools">
-                                    <div class="color-picker">
-                                        <div class="color-btn active" style="background-color: #000000;" data-color="#000000"></div>
-                                        <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc"></div>
-                                        <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000"></div>
-                                    </div>
-                                    <button class="eraser-btn">🧽 Eraser</button>
-                                </div>
-                            </div>
-                        `;
-                        
-                        partDiv.innerHTML = partContent;
-                        questionDiv.appendChild(partDiv);
-                    });
-
-                    container.appendChild(questionDiv);
-                });
-
-                this.initializeCanvases();
-                this.renderMath();
-                document.getElementById('generatePdf').style.display = 'block';
-            }
-
-processLatexText(text) {
-    return text
-        .replace(/\\vspace\{[^}]*\}/g, '')            // Remove all \vspace{...}
-        .replace(/\\textbf{([^}]*)}/g, '<strong>$1</strong>')
-        .replace(/\\textit{([^}]*)}/g, '<em>$1</em>')
-        .replace(/\\emph{([^}]*)}/g, '<em>$1</em>');
-}
-
-            renderMath() {
-                if (window.MathJax && window.MathJax.typesetPromise) {
-                    window.MathJax.typesetPromise().catch((err) => console.log(err.message));
-                }
-            }
-
-            initializeCanvases() {
-                const canvases = document.querySelectorAll('.drawing-canvas');
-                
-                canvases.forEach((canvas) => {
-                    const ctx = canvas.getContext('2d');
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.lineWidth = 2;
-                    
-                    this.canvases.push({ canvas, ctx });
-                    
-                    // Drawing event listeners
-                    canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-                    canvas.addEventListener('mousemove', this.draw.bind(this));
-                    canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-                    canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-                    
-                    // Touch events for stylus/finger
-                    canvas.addEventListener('touchstart', this.handleTouch.bind(this));
-                    canvas.addEventListener('touchmove', this.handleTouch.bind(this));
-                    canvas.addEventListener('touchend', this.stopDrawing.bind(this));
-                    
-                    // Pinch to zoom
-                    canvas.addEventListener('gesturestart', this.handleGesture.bind(this));
-                    canvas.addEventListener('gesturechange', this.handleGesture.bind(this));
-                    
-                    // Resize handle
-                    const resizeHandle = canvas.parentElement.querySelector('.resize-handle');
-                    resizeHandle.addEventListener('mousedown', (e) => this.startResize(e, canvas));
-                });
-                
-                // Color picker and eraser event listeners
-                document.querySelectorAll('.color-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        // Remove active class from siblings
-                        e.target.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                        e.target.classList.add('active');
-                        
-                        this.currentColor = e.target.dataset.color;
-                        this.isErasing = false;
-                        
-                        // Remove active from eraser
-                        e.target.closest('.tools').querySelector('.eraser-btn').classList.remove('active');
-                    });
-                });
-                
-                document.querySelectorAll('.eraser-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        this.isErasing = !this.isErasing;
-                        e.target.classList.toggle('active');
-                        
-                        // Remove active from color buttons
-                        if (this.isErasing) {
-                            e.target.closest('.tools').querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
-                        }
-                    });
+            // Initialize user data if it doesn't exist
+            if (!userData[currentUser.id]) {
+                userData[currentUser.id] = {};
+                sampleTexFiles.forEach(file => {
+                    userData[currentUser.id][file] = null; // No canvas data yet
                 });
             }
 
-            startDrawing(e) {
-                this.isDrawing = true;
-                const rect = e.target.getBoundingClientRect();
-                this.lastX = e.clientX - rect.left;
-                this.lastY = e.clientY - rect.top;
-            }
+            showMainInterface();
+        }
 
-            draw(e) {
-                if (!this.isDrawing) return;
-                
-                const canvas = e.target;
-                const ctx = canvas.getContext('2d');
-                const rect = canvas.getBoundingClientRect();
-                
-                const currentX = e.clientX - rect.left;
-                const currentY = e.clientY - rect.top;
-                
-                ctx.beginPath();
-                ctx.moveTo(this.lastX, this.lastY);
-                ctx.lineTo(currentX, currentY);
-                
-                if (this.isErasing) {
-                    ctx.globalCompositeOperation = 'destination-out';
-                    ctx.lineWidth = 50;
-                } else {
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.strokeStyle = this.currentColor;
-                    ctx.lineWidth = 2;
-                }
-                
-                ctx.stroke();
-                
-                this.lastX = currentX;
-                this.lastY = currentY;
-            }
+        // Show main interface
+        function showMainInterface() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainInterface').style.display = 'flex';
+            document.getElementById('userDisplay').textContent = currentUser.displayName;
+            
+            initializeCanvas();
+            populateFileList();
+        }
 
-            stopDrawing() {
-                this.isDrawing = false;
-            }
+        // Logout function
+        function logout() {
+            currentUser = null;
+            currentFile = null;
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('mainInterface').style.display = 'none';
+            document.getElementById('email').value = '';
+            document.getElementById('password').value = '';
+        }
 
-            handleTouch(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
-                                                 e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                e.target.dispatchEvent(mouseEvent);
-            }
+        // Initialize canvas
+        function initializeCanvas() {
+            canvas = document.getElementById('drawingCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Canvas event listeners
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+            
+            // Touch events for mobile
+            canvas.addEventListener('touchstart', handleTouch);
+            canvas.addEventListener('touchmove', handleTouch);
+            canvas.addEventListener('touchend', stopDrawing);
+        }
 
-            handleGesture(e) {
-                e.preventDefault();
-                if (e.type === 'gesturechange') {
-                    const canvas = e.target;
-                    const newWidth = Math.max(200, Math.min(800, canvas.width * e.scale));
-                    const newHeight = Math.max(150, Math.min(600, canvas.height * e.scale));
-                    
-                    // Preserve canvas content
-                    const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    canvas.getContext('2d').putImageData(imageData, 0, 0);
-                }
-            }
-
-            startResize(e, canvas) {
-                e.preventDefault();
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const startWidth = canvas.width;
-                const startHeight = canvas.height;
-                
-                const doDrag = (e) => {
-                    const newWidth = Math.min(800,Math.max(200, startWidth + (e.clientX - startX)));
-                    const newHeight = Math.min(800,Math.max(150, startHeight + (e.clientY - startY)));
-                    
-                    // Preserve canvas content
-                    const imageData = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
-                    canvas.getContext('2d').putImageData(imageData, 0, 0);
-                };
-                
-                const stopDrag = () => {
-                    document.removeEventListener('mousemove', doDrag);
-                    document.removeEventListener('mouseup', stopDrag);
-                };
-                
-                document.addEventListener('mousemove', doDrag);
-                document.addEventListener('mouseup', stopDrag);
-            }
-
-            async generatePDF() {
-    console.log('Starting PDF generation...');
-    
-    this.studentName = document.getElementById('studentName').value.trim();
-
-    const progressContainer = document.querySelector('.pdf-progress-container');
-    const progressBar = document.getElementById('pdfProgress');
-    progressContainer.style.display = 'block';
-    progressBar.value = 0;
-
-    try {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        let isFirstPage = true;
-
-        const totalParts = this.questions.reduce((acc, q) => acc + q.parts.length, 0);
-        let processedParts = 0;
-
-        for (const question of this.questions) {
-            for (const part of question.parts) {
-                if (!isFirstPage) pdf.addPage();
-                isFirstPage = false;
-
-                let yPos = 20;
-
-                const questionTextElement = document.querySelector(`[data-question="${question.id}"] .question-text`);
-                const partTextElement = document.querySelector(`[data-question="${question.id}"][data-part="${part.id}"] .part-text`);
-
-                try {
-                    if (window.MathJax) await new Promise(resolve => setTimeout(resolve, 100));
-
-                    if (questionTextElement) {
-                        const questionCanvas = await html2canvas(questionTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                        const questionImgData = questionCanvas.toDataURL('image/png');
-                        const questionImgWidth = Math.min(170, questionCanvas.width * 0.25);
-                        const questionImgHeight = questionCanvas.height * (questionImgWidth / questionCanvas.width);
-                        pdf.addImage(questionImgData, 'PNG', 15, yPos, questionImgWidth, questionImgHeight);
-                        yPos += questionImgHeight + 8;
-                    }
-
-                    if (partTextElement && part.text) {
-                        const partCanvas = await html2canvas(partTextElement, { scale: 2, backgroundColor: '#ffffff' });
-                        const partImgData = partCanvas.toDataURL('image/png');
-                        const partImgWidth = Math.min(170, partCanvas.width * 0.25);
-                        const partImgHeight = partCanvas.height * (partImgWidth / partCanvas.width);
-                        pdf.addImage(partImgData, 'PNG', 15, yPos, partImgWidth, partImgHeight);
-                        yPos += partImgHeight + 15;
-                    } else {
-                        yPos += 15;
-                    }
-
-                } catch (error) {
-                    console.warn('Fallback:', error);
-                    const questionText = `Question ${question.id}: ${question.text}`;
-                    const partText = part.text ? `Part ${part.id}: ${part.text}` : '';
-                    pdf.setFontSize(12);
-                    pdf.setFont(undefined, 'bold');
-                    const questionLines = pdf.splitTextToSize(questionText, 170);
-                    pdf.text(questionLines, 15, yPos);
-                    yPos += questionLines.length * 6 + 5;
-
-                    if (partText) {
-                        pdf.setFont(undefined, 'normal');
-                        const partLines = pdf.splitTextToSize(partText, 170);
-                        pdf.text(partLines, 15, yPos);
-                        yPos += partLines.length * 6 + 15;
-                    }
-                }
-
-                const canvas = document.querySelector(`canvas[data-question="${question.id}"][data-part="${part.id}"]`);
-                if (canvas) {
-                    const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = Math.min(170, canvas.width * 0.35);
-                    const imgHeight = canvas.height * (imgWidth / canvas.width);
-                    pdf.addImage(imgData, 'PNG', 15, yPos, imgWidth, imgHeight);
-                }
-
-                // ✅ Update progress bar
-                processedParts++;
-                progressBar.value = Math.round((processedParts / totalParts) * 100);
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Reload current canvas if exists
+            if (currentFile && userData[currentUser.id][currentFile]) {
+                loadCanvasFromSVG(userData[currentUser.id][currentFile]);
             }
         }
 
-// Use stored LaTeX filename (without extension)
-        const baseName = this.fileName.replace(/\.[^/.]+$/, '');  // removes extension like .tex or .txt
-        const namePart = this.studentName ? this.studentName.replace(/\s+/g, '_') : 'student';
-        pdf.save(`${baseName}-${namePart}-answers.pdf`); 
-        console.log('PDF generated successfully');
-
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-        alert('Error generating PDF: ' + error.message);
-    } finally {
-        // ✅ Hide progress after short delay
-        setTimeout(() => {
-            document.querySelector('.pdf-progress-container').style.display = 'none';
-        }, 1000);
-    }
-}
-
+        // Populate file list
+        function populateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            sampleTexFiles.forEach(file => {
+                const li = document.createElement('li');
+                li.className = 'file-item';
+                li.textContent = file;
+                li.onclick = () => selectFile(file);
+                fileList.appendChild(li);
+            });
         }
 
-        // Initialize the app when DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            new QuizApp();
-        });
+        // Select file
+        function selectFile(filename) {
+            // Save current canvas before switching
+            if (currentFile) {
+                saveCurrentCanvas();
+            }
+            
+            currentFile = filename;
+            
+            // Update UI
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent === filename) {
+                    item.classList.add('active');
+                }
+            });
+            
+            // Load canvas for this file
+            loadCanvas();
+        }
+
+        // Drawing functions
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            ctx.lineWidth = currentBrushSize;
+            ctx.lineCap = 'round';
+            
+            if (currentTool === 'draw') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = currentColor;
+            } else if (currentTool === 'erase') {
+                ctx.globalCompositeOperation = 'destination-out';
+            }
+            
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            
+            // Auto-save after drawing
+            clearTimeout(window.autoSaveTimeout);
+            window.autoSaveTimeout = setTimeout(() => {
+                saveCurrentCanvas();
+                showSaveStatus();
+            }, 1000);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                            e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            canvas.dispatchEvent(mouseEvent);
+        }
+
+        // Tool functions
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('[data-tool]').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.tool === tool) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            canvas.style.cursor = tool === 'draw' ? 'crosshair' : 'grab';
+        }
+
+        function setColor(color) {
+            currentColor = color;
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.style.background === color) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function setBrushSize(size) {
+            currentBrushSize = parseInt(size);
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            saveCurrentCanvas();
+            showSaveStatus();
+        }
+
+        // Canvas saving/loading as SVG
+        function saveCurrentCanvas() {
+            if (!currentFile || !currentUser) return;
+            
+            // Convert canvas to SVG
+            const svgData = canvasToSVG();
+            userData[currentUser.id][currentFile] = svgData;
+            
+            // In a real implementation, you'd send this to your backend
+            console.log(`Saved canvas for ${currentFile} as SVG`);
+        }
+
+        function canvasToSVG() {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', canvas.width);
+            svg.setAttribute('height', canvas.height);
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            
+            // Convert canvas to data URL and embed as image in SVG
+            const image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            image.setAttribute('width', canvas.width);
+            image.setAttribute('height', canvas.height);
+            image.setAttribute('href', canvas.toDataURL());
+            
+            svg.appendChild(image);
+            
+            return new XMLSerializer().serializeToString(svg);
+        }
+
+        function loadCanvas() {
+            if (!currentFile || !userData[currentUser.id][currentFile]) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+            
+            loadCanvasFromSVG(userData[currentUser.id][currentFile]);
+        }
+
+        function loadCanvasFromSVG(svgData) {
+            const img = new Image();
+            img.onload = function() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+            };
+            
+            // Extract the image data from SVG
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgData, 'image/svg+xml');
+            const imageElement = svgDoc.querySelector('image');
+            if (imageElement) {
+                img.src = imageElement.getAttribute('href');
+            }
+        }
+
+        function showSaveStatus() {
+            const status = document.getElementById('saveStatus');
+            status.textContent = 'Saved';
+            status.style.background = '#48bb78';
+            
+            setTimeout(() => {
+                status.textContent = 'Auto-save enabled';
+                status.style.background = '#718096';
+            }, 2000);
+        }
+
+        // Download SVG function (bonus feature)
+        function downloadSVG() {
+            if (!currentFile) return;
+            
+            const svgData = canvasToSVG();
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.replace('.tex', '_canvas.svg');
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
