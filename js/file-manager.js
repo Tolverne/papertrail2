@@ -4,7 +4,7 @@ class FileManager {
         this.fileTree = [];
         this.currentFile = null;
         this.baseRepoPath = 'latex-files';
-        this.apiBase = 'https://api.github.com/repos/tolverne/papertrail/contents';
+        this.apiBase = 'https://api.github.com/repos/tolverne/papertrail2/contents';
     }
 
     async getFileTreeFromRepo(path = this.baseRepoPath) {
