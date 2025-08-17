@@ -37,92 +37,154 @@
         <!-- File Browser Sidebar -->
         <div id="fileSidebar" class="file-sidebar">
             <div class="sidebar-header">
-                <div>
-                    <h3>LaTeX Files</h3>
+                <div class="header-content">
+                    <h3><span class="icon">📚</span> LaTeX Files</h3>
                     <div class="user-info">
-                        <span id="userDisplay">Loading...</span>
-                        <button class="logout-btn" id="logoutBtn">Sign Out</button>
+                        <span class="user-name" id="userDisplay">Loading...</span>
+                        <button class="logout-btn" id="logoutBtn">
+                            <span class="icon">🚪</span> Sign Out
+                        </button>
                     </div>
                 </div>
-                <button id="refreshTree" class="refresh-btn" title="Refresh file tree">🔄</button>
+                <button id="refreshTree" class="refresh-btn" title="Refresh file tree">
+                    <span class="icon">🔄</span>
+                </button>
             </div>
-            <div class="file-tree-container">
-                <!-- File tree will be rendered here -->
-            </div>
-            <div id="currentFileInfo" class="current-file-info" style="display: none;">
-                <!-- Current file info will be shown here -->
+            
+            <div class="file-tree-section">
+                <div class="file-tree-container">
+                    <!-- File tree will be rendered here -->
+                </div>
+                
+                <div id="currentFileInfo" class="current-file-info" style="display: none;">
+                    <!-- Current file info will be shown here -->
+                </div>
             </div>
             
             <!-- Global Drawing Tools -->
             <div class="sidebar-tools">
-                <h4>Drawing Tools</h4>
-                <div class="color-picker">
-                    <div class="color-btn active" style="background-color: #000000;" data-color="#000000" title="Black"></div>
-                    <div class="color-btn" style="background-color: #0066cc;" data-color="#0066cc" title="Blue"></div>
-                    <div class="color-btn" style="background-color: #cc0000;" data-color="#cc0000" title="Red"></div>
-                    <div class="color-btn" style="background-color: #00cc00;" data-color="#00cc00" title="Green"></div>
-                    <div class="color-btn" style="background-color: #ff6600;" data-color="#ff6600" title="Orange"></div>
-                    <div class="color-btn" style="background-color: #9900cc;" data-color="#9900cc" title="Purple"></div>
-                </div>
-                <button class="eraser-btn">🧽 Eraser</button>
-                
-                <!-- Canvas Storage Controls -->
-                <div class="storage-controls">
-                    <button class="canvas-save-btn" id="saveCanvases">💾 Save All Canvases</button>
-                    <button class="canvas-save-btn" id="loadCanvases">📁 Load Canvases</button>
-                    <input type="file" id="canvasFileInput" accept=".json" style="display: none;">
+                <div class="tools-header">
+                    <h4><span class="icon">🎨</span> Drawing Tools</h4>
                 </div>
                 
-                <div class="tool-info">
-                    <small>Click any canvas to start drawing</small>
+                <div class="tools-section">
+                    <div class="color-section">
+                        <label class="tool-label">Colors</label>
+                        <div class="color-picker">
+                            <div class="color-btn active" 
+                                 style="background-color: #000000;" 
+                                 data-color="#000000" 
+                                 title="Black">
+                                <span class="color-label">Black</span>
+                            </div>
+                            <div class="color-btn" 
+                                 style="background-color: #0066cc;" 
+                                 data-color="#0066cc" 
+                                 title="Blue">
+                                <span class="color-label">Blue</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="eraser-section">
+                        <button class="eraser-btn">
+                            <span class="icon">🧽</span> Eraser Mode
+                        </button>
+                    </div>
+                    
+                    <!-- Canvas Storage Controls -->
+                    <div class="storage-section">
+                        <label class="tool-label">Canvas Storage</label>
+                        <div class="storage-controls">
+                            <button class="storage-btn primary" id="saveCanvases">
+                                <span class="icon">💾</span> Save All
+                            </button>
+                            <button class="storage-btn secondary" id="loadCanvases">
+                                <span class="icon">📁</span> Load
+                            </button>
+                            <input type="file" id="canvasFileInput" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <div class="tool-status">
+                        <div class="status-indicator">
+                            <span class="status-icon">●</span>
+                            <span class="status-text">Ready to draw</span>
+                        </div>
+                        <div class="tool-info">
+                            <small>Click any canvas to start drawing</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
         <!-- Sidebar Toggle Button -->
-        <button id="sidebarToggle" class="sidebar-toggle" title="Hide file browser">◀</button>
+        <button id="sidebarToggle" class="sidebar-toggle" title="Toggle sidebar">
+            <span class="toggle-icon">◀</span>
+        </button>
         
         <!-- Main Content Area -->
         <div id="mainContent" class="main-content">
-            <div class="container">
-                <div class="header">
-                    <h1>Mathematics: Analysis and Approaches</h1>
+            <div class="content-wrapper">
+                <div class="page-header">
+                    <h1 class="page-title">Mathematics: Analysis and Approaches</h1>
+                    <div class="page-subtitle">Interactive LaTeX Quiz Platform</div>
                 </div>
                 
-                <div class="loading" id="loading">
-                    <p>🔄 Processing LaTeX file...</p>
-                </div>
+                <div class="content-container">
+                    <div class="loading-state" id="loading">
+                        <div class="loading-spinner"></div>
+                        <p>Processing LaTeX file...</p>
+                    </div>
 
-                <!-- Section Carousel -->
-                <div id="sectionCarousel" class="section-carousel" style="display: none;">
-                    <div class="carousel-header">
-                        <div class="section-tabs" id="sectionTabs">
-                            <!-- Section tabs will be rendered here -->
+                    <!-- Section Carousel -->
+                    <div id="sectionCarousel" class="section-carousel" style="display: none;">
+                        <div class="carousel-header">
+                            <div class="section-tabs" id="sectionTabs">
+                                <!-- Section tabs will be rendered here -->
+                            </div>
+                            <div class="carousel-controls">
+                                <button id="prevSection" class="carousel-btn prev" title="Previous section">
+                                    <span class="icon">‹</span>
+                                </button>
+                                <span id="sectionCounter" class="section-counter">1 / 1</span>
+                                <button id="nextSection" class="carousel-btn next" title="Next section">
+                                    <span class="icon">›</span>
+                                </button>
+                            </div>
                         </div>
-                        <div class="carousel-controls">
-                            <button id="prevSection" class="carousel-btn" title="Previous section">‹</button>
-                            <span id="sectionCounter" class="section-counter">1 / 1</span>
-                            <button id="nextSection" class="carousel-btn" title="Next section">›</button>
+                        <div class="carousel-body">
+                            <div class="carousel-container" id="carouselContainer">
+                                <!-- Section slides will be rendered here -->
+                            </div>
+                        </div>
+                        <div class="keyboard-hint">
+                            <span class="icon">⌨️</span> Use ← → arrow keys to navigate sections
                         </div>
                     </div>
-                    <div class="carousel-body">
-                        <div class="carousel-container" id="carouselContainer">
-                            <!-- Section slides will be rendered here -->
+
+                    <div id="questionsContainer" class="questions-container">
+                        <!-- Questions will be rendered here -->
+                    </div>
+
+                    <div class="action-section">
+                        <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
+                            <span class="icon">📄</span>
+                            <span class="btn-text">Generate PDF</span>
+                        </button>
+                        
+                        <div class="pdf-progress-container" style="display: none;">
+                            <div class="progress-header">
+                                <span class="icon">⏳</span>
+                                <span>Generating PDF, please wait...</span>
+                            </div>
+                            <div class="progress-wrapper">
+                                <progress id="pdfProgress" value="0" max="100"></progress>
+                                <span class="progress-text">0%</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="keyboard-hint">
-                        Use ← → arrow keys to navigate sections
-                    </div>
-                </div>
-
-                <div id="questionsContainer"></div>
-
-                <button id="generatePdf" class="generate-pdf-btn" style="display: none;">
-                    📄 Generate PDF
-                </button>
-                <div class="pdf-progress-container" style="display: none; margin: 20px 0; text-align: center;">
-                    <p style="margin-bottom: 10px; color: #555;">Generating PDF, please wait...</p>
-                    <progress id="pdfProgress" value="0" max="100" style="width: 80%; height: 20px;"></progress>
                 </div>
             </div>
         </div>
