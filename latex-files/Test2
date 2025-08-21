@@ -1,0 +1,556 @@
+\documentclass[11pt,addpoints]{exam}
+\usepackage{amsfonts,amssymb,amsmath, amsthm}
+\usepackage{graphicx}
+\usepackage{systeme}
+\usepackage{pgf,tikz,pgfplots}
+\pgfplotsset{compat=1.15}
+\usepgfplotslibrary{fillbetween}
+\usepackage{mathrsfs}
+\usetikzlibrary{arrows}
+\usetikzlibrary{calc}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+
+\usepackage{enumitem,amssymb}
+\newlist{todolist}{itemize}{2}
+\setlist[todolist]{label=$\square$}
+
+\pagestyle{headandfoot}
+
+\newcolumntype{w}{>{\columncolor[HTML]{FFFFFF}} p{8cm}}     %white
+\newcolumntype{y}{>{\columncolor[HTML]{FFFFFF}} p{16cm}}     %white
+
+\newcolumntype{x}{>{\columncolor[HTML]{FFFFFF}} p{16cm}}     %white
+\newcolumntype{n}{>{\columncolor[HTML]{FFFFFF}} m{8cm}}     %white centred
+\newcolumntype{t}{>{\columncolor[HTML]{25A784}} p{8cm}}     %teal
+\newcolumntype{s}{>{\columncolor[HTML]{B1E9DA}} p{8cm}}     %light teal
+\newcolumntype{u}{>{\columncolor[HTML]{25A784}} p{16.5cm}}     %teal
+\newcolumntype{h}{>{\columncolor[HTML]{CECECE}} m{16.5cm}}    %grey
+% \firstpageheader{Mathematics - AA - HL (Functions)}{}{Name: \underline{\hspace{2.5in}}}
+%\firstpageheadrule
+
+\runningheader{Mathematics - AA (Differential Calculus)}{}{Page \thepage\ of \numpages}
+\runningheadrule
+
+\firstpagefooter{}{}{}
+\runningfooter{}{}{}
+
+
+\begin{document}
+
+
+
+\begin{figure}[h]
+    \includegraphics[width=.25\columnwidth]{BSSSC.png}
+\end{figure}
+
+\begin{center}
+    \begin{tabular}{|t|s|}
+    \hline
+        Subject: Mathematics - Analysis and Approaches (SL and HL)  & Unit: 3  Task: 2 \\
+    \hline
+    \end{tabular}
+\end{center}
+
+\begin{center}
+    \begin{tabular}{|p{8cm}| p{8cm}|}
+    \hline
+         Student Name: &  Class Code: 11MSZ \\
+    \hline
+       \multicolumn{2}{|l|}{Teacher Name: Patrick Johnson}   \\
+    \hline
+         Issue Date:26th August 2025 &  Due Date: 26th August 2025\\
+    \hline
+    \end{tabular}
+\end{center}
+
+\begin{center}
+    \begin{tabular}{|w|w|}
+    \hline
+        \multicolumn{2}{|>{\bfseries \centering} h|}{Context}   \\
+    \hline
+        \multicolumn{2}{|y|}{
+ Calculus describes rates of change between two variables and the accumulation of limiting areas. 
+Understanding these rates of change and accumulations allow us to model, interpret and analyze real world problems and situations. Calculus helps us to understand the behaviour of functions and allows us to interpret the features of their graphs.
+Throughout this topic students should be given the opportunity to use technology such as graphing packages and graphing calculators to develop and apply their knowledge of calculus.
+        }\\
+    % \hline
+    %     \multicolumn{2}{|>{\bfseries \centering} h|}{Task}   \\    
+    % \hline
+    %     \multicolumn{2}{|l|}{
+    %     INSERT TASK HERE
+    %     }\\
+    \hline
+        \multicolumn{2}{|>{\bfseries \centering} h|}{Assessment Conventions}   \\        
+    \hline
+    Technique       & Examination \\
+    \hline
+    Type of Text    & Written \\
+    \hline
+    Mode            & Short response\\
+    \hline
+    Conditions      &  Section 1 70 mins + 5 mins perusal\newline Section 2 45 mins + 5 mins perusal\\
+    % \hline
+    %     \multicolumn{2}{|>{\bfseries \centering} h|}{Scaffolding}\\
+    % \hline
+    %     \multicolumn{2}{|l|}{
+    %     INSERT SCAFFOLDING HERE
+    %     }\\
+    \hline
+    \end{tabular}
+\end{center}
+
+\scriptsize
+\begin{center}
+    \begin{tabular}{|w|w|}
+    \hline
+        \multicolumn{2}{|>{\bfseries \centering} u|}{Assessment Objectives}  \\
+    \hline
+    \centering \textbf{Assessment Objective} &  \textbf{Related Command Term Definition} \\ 
+    \hline
+    1. \textbf{Knowledge and understanding:} Recall, select and use their knowledge of mathematical facts, concepts and techniques in a variety of familiar and unfamiliar contexts.&
+    \begin{itemize}
+        \item Recall: bring (a fact, event, or situation) back into one's mind; remember 
+
+        \item Select: carefully choose as being the best or most suitable 
+
+        \item Use/Apply: Use an idea, equation, principle, theory or law in relation to a given problem or issue. 
+
+        \item Calculate: Obtain a numerical answer showing the relevant stages in the working. 
+    \end{itemize}
+    \\
+    \hline
+    2. \textbf{Problem solving:} Recall, select and use their knowledge of mathematical skills, results and models in both abstract and real-world contexts to solve problems.  & 
+        \begin{itemize}
+        \item Recall: bring (a fact, event, or situation) back into one's mind; remember 
+
+        \item Select: carefully choose as being the best or most suitable 
+
+        \item Use/Apply: Use an idea, equation, principle, theory or law in relation to a given problem or issue. 
+
+        \item Calculate: Obtain a numerical answer showing the relevant stages in the working. 
+    \end{itemize}
+    \\
+    \hline
+    3. \textbf{Communication and interpretation:} Transform common realistic contexts into mathematics; comment on the context; sketch or draw mathematical diagrams, graphs or constructions both on paper and using technology; record methods, solutions and conclusions using standardized notation; use appropriate notation and terminology. & 
+    \begin{itemize}
+        \item Comment: Give judgement based on a given statement or result of a calculation 
+
+        \item Label: Add labels to a diagram 
+
+        \item Sketch: Represent by means of a diagram or graph (labelled as appropriate). The sketch should give a general idea of the required shape or relationship, and should include relevant features. 
+
+        \item Draw: Represent by means of a labelled, accurate diagram or graph, using a pencil. A ruler (straight edge) should be used for straight lines. Diagrams should be drawn to scale. Graphs should have points correctly plotted (if appropriate) and joined in a straight line or smooth curve.    
+    \end{itemize}
+    \\
+        \hline
+    4. \textbf{Technology:} Use technology accurately, appropriately and efficiently both to explore new ideas and to solve problems.  & 
+
+    \begin{itemize}
+        \item Solve: Obtain the answer(s) using algebraic and/or numerical and/or graphical methods. 
+    \end{itemize}
+    \\
+        \hline
+
+    
+    % \hline
+    %         \multicolumn{2}{|>{\bfseries} h|}{Checkpoints}\\
+    % \hline
+    % \multicolumn{2}{|l|}{
+    
+    % }\\
+    \hline
+    \end{tabular}
+\end{center}
+\normalsize
+
+\newpage
+
+\begin{center}
+    \begin{tabular}{|x|}
+         \hline
+        \multicolumn{1}{|>{\bfseries} h|}{Authentication Strategies}\\
+         \hline    
+         \begin{itemize}
+         \begin{todolist}
+         \item You will show all working clearly.
+         \item Your teacher will conduct interviews after submission to clarify or explore aspects of your response.
+         \item You will produce work under exam conditions.  
+         \item You must submit a declaration of authenticity.
+            % \item You will be provided class time for task completion. 
+            % \item Your teacher will observe you completing work in class.
+            % \item You will produce sections of the final response under supervised conditions. 
+            % \item Your teacher will collect copies of your response and monitor at key junctures. 
+            % \item Your teacher will collate and annotate a draft. 
+            % \item You must acknowledge all sources. 
+            % \item Your teacher will compare the responses of students who have worked together in groups. 
+            % \item Your teacher will ensure class cross-marking occurs. 
+            % \item When working as part of a group, your individual response is assessed by your \item individual performance in the assessment technique/task. 
+            % \item You will each produce a unique response by collecting data as a group but producing individual reports 
+            % \item You will provide documentation of your progress at checkpoints outlined below
+            % \item You must submit a declaration of authenticity.
+         \end{todolist}
+         \end{itemize}\\
+         \hline
+         \\
+         \\
+         \\
+         \\
+         \\
+         \\
+         \\
+         \\
+         I, (name) \rule{5cm}{0.4pt}  have referenced where necessary and declare the work submitted is my own.\\
+         \\
+         \\
+         (Signed) \rule{5cm}{0.4pt}  (Date) \rule{5cm}{0.4pt}\\
+         \\
+         \\
+         \\
+         \\
+         \\
+         \\
+         \\
+         \hline
+    \end{tabular}
+\end{center}
+
+
+
+
+
+\newpage
+
+\section{Standard Level}
+
+\begin{questions}
+
+
+% Question: Basic derivatives without product/quotient/chain rule
+\question Find the derivative of each of the following functions.  
+
+\begin{parts}
+\part Find the derivative of \[ y = 5x^4 - 3x^2 + 7. \]  
+\vspace{12em}
+
+\part Find the derivative of \[ y = \tfrac{1}{x^3} + 4x - 6. \]  
+\vspace{12em}
+
+\part Find the derivative of \[ y = \sqrt{x} + 2x^5. \]  
+\vspace{12em}
+
+\part Find the derivative of \[ y = \tfrac{7}{\sqrt{x}} - x^2. \]  
+\vspace{12em}
+\end{parts}
+
+\newpage
+
+% Question 2: Basic derivatives and product/quotient/chain rule
+\question Differentiate the following functions using the appropriate rule.
+\begin{parts}
+\part Differentiate
+\[
+f(x) = (x^3)(\cos x).
+\]
+\vspace{10em}
+\part Differentiate
+\[
+g(x) = \frac{x^2}{\sin x}.
+\]
+\vspace{10em}
+\part Differentiate
+\[
+h(x) = (5x^2 - 2)^3.
+\]
+\vspace{10em}
+\part Differentiate
+\[
+k(x) = e^{\,2x^2 - x}.
+\]
+\vspace{10em}
+\end{parts}
+
+\newpage
+% Question 1: Derivative as gradient/rate of change
+\question Consider the function
+\[
+f(x) = 2x^3 - 9x^2 + 12x - 1.
+\]
+\begin{parts}
+\part Find the derivative $f'(x)$.
+\vspace{12em}
+\part Calculate $f'(0)$. Hence, find the gradient of the tangent line at $x=0$.
+\vspace{16em}
+\part Determine the intervals where $f(x)$ is increasing and decreasing.
+\vspace{16em}\newpage
+\part Sketch a rough graph of $f'(x)$ and illustrate how the sign of $f'(x)$ corresponds to increasing and decreasing behaviour of $f(x)$.
+\vspace{12em}
+\end{parts}
+
+
+
+\newpage
+% Question 3: Second derivative, maxima/minima, inflection
+\question Consider the function
+\[
+f(x) = x^3 - 3x^2 - 9x + 5.
+\]
+\begin{parts}
+\part Find $f'(x)$ and $f''(x)$.
+\vspace{12em}
+\part Solve $f'(x) = 0$ to find the critical points.
+\vspace{12em}
+\part Use the second derivative test to classify each critical point.
+\vspace{12em}
+\part Determine the points of inflection and state whether the gradient is zero or non-zero at each.
+\vspace{12em}
+\part Sketch the original function, labelling all stationary points, and points of inflection
+\end{parts}
+
+\newpage
+% Question 4: Optimization
+\question A farmer wants to create a rectangular garden along a straight wall. She has 150 metres of fencing to enclose the other three sides. Let the side along the wall have length $x$ metres, and the perpendicular sides each have length $y$ metres.
+\begin{parts}
+\part Express the area $A$ of the garden as a function of $x$ only.
+\vspace{18em}
+\part Find $\frac{dA}{dx}$ and the critical point(s).
+\vspace{18em}
+\part Use the second derivative test to determine if the critical point is a maximum or minimum.
+\vspace{18em}
+\part State the dimensions of the garden that give the maximum area, and calculate this area.
+\vspace{18em}
+\end{parts}
+
+
+
+\newpage
+% Question 4 Variation: Optimization with Cylinder
+\question A cylindrical can is to be constructed to hold a fixed volume of 
+\[
+V = 1000 \ \text{cm}^3.
+\]  
+The can has radius $r$ cm and height $h$ cm.  
+
+\begin{parts}
+\part  Show that the height of the cone can be expressed as $h=\frac{1000}{\pi r^2}$.
+\vspace{18em}
+
+\part Show that the surface area $S$ of the can can be written as a function of $r$ only.  
+\vspace{18em}
+
+\part Find $\frac{dS}{dr}$ and determine the critical point(s).  
+\vspace{18em}
+
+\part Use the second derivative test to show that the surface area is minimized at this point.  
+\vspace{18em}
+
+\part State the dimensions of the can that minimize the surface area, and calculate this minimum surface area.  
+\vspace{18em}
+\end{parts}
+
+
+\newpage
+\question Consider the function $y=x^3e^{-2x}$.
+
+\begin{parts}
+    \part Find the derivative of this equation.\vspace{18em}
+
+    \part Find and classify the stationary point/s of this equation.\vspace{18em}
+
+    \part Find the second derivative of this equation.\vspace{18em}
+
+    \part Find the points of infexion.\vspace{18em}
+
+    \part Sketch the graph of this function, showing all points found above.\vspace{18em}
+
+    
+    
+\end{parts}
+
+\end{questions}
+
+
+
+
+
+
+
+
+\newpage
+\section{Higher Level}
+
+\begin{questions}
+
+% Question: Limits using factorization only
+\question Evaluate the following limits by factorization. Show all working clearly.  
+
+\begin{parts}
+\part Find \[ \lim_{x \to 3} \frac{x^2 - 9}{x - 3}. \]  
+\vspace{12em}
+
+\part Find \[ \lim_{x \to -2} \frac{x^2 + 5x + 6}{x + 2}. \]  
+\vspace{12em}
+
+\part Find \[ \lim_{x \to 4} \frac{x^2 - 8x + 16}{x - 4}. \]  
+\vspace{12em}
+
+\part Find \[ \lim_{x \to 1} \frac{x^3 - 1}{x - 1}. \]  
+\vspace{12em}
+\end{parts}
+
+
+\newpage
+% Question 5: HL - First principles with h
+\question Use the definition of the derivative to find derivative of $f(x) = x^4$ from first principles.
+\begin{parts}
+
+\part Evaluate $\lim_{h \to 0} \frac{f(x+h)-f(x)}{h}$ to show $f'(x) = 4x^3$.
+\vspace{36em}
+\part Find the gradient of the curve at $x = 2$.
+\vspace{12em}
+\end{parts}
+
+\newpage
+% Question 6: HL - Maclaurin series for cos(x)
+\question Consider $f(x) = \cos(x)$.
+\begin{parts}
+\part Find the first four derivatives of $f(x)$.
+\vspace{18em}
+\part Write the Maclaurin series definition and substitute these derivatives.
+\vspace{18em}\newpage
+\part Write the Maclaurin series up to the $x^4$ term and use it to approximate $\cos(\frac{\pi}{4})$.
+\vspace{18em}
+\part Compare this estimate with the exact value and comment on the accuracy.
+\vspace{18em}
+\end{parts}
+
+\newpage
+% Question 7: Derivatives of tan, sec, csc, cot
+\question Differentiate the following, showing all steps.
+\begin{parts}
+\part Differentiate
+\[
+f(x) = x \cot x.
+\]
+\vspace{18em}
+\part Differentiate
+\[
+g(x) = \frac{\csc x}{x}.
+\]
+\vspace{18em}
+\part Differentiate
+\[
+h(x) = \arccos(2x).
+\]
+\vspace{18em}
+\part Differentiate
+\[
+k(x) = \ln(x) \cdot \tan x.
+\]
+\vspace{18em}
+\end{parts}
+
+\newpage
+% Question 8: Implicit differentiation
+\question Differentiate the following equations implicitly.
+\begin{parts}
+\part Differentiate
+\[
+x^2 - y^2 = 16
+\]
+and find $\frac{dy}{dx}$.
+\vspace{18em}
+\part Differentiate
+\[
+x^2y = 2
+\]
+and find $\frac{dy}{dx}$.
+\vspace{18em}
+\part Differentiate
+\[
+x y^2 + y^3 = 6
+\]
+and find $\frac{dy}{dx}$.
+\vspace{18em}
+\part For the curve
+\[
+\cos(xy) + y = x^2,
+\]
+use implicit differentiation to find $\frac{dy}{dx}$.
+\vspace{18em}
+\end{parts}
+
+\newpage
+% Question 9: Limits using L’Hôpital and Maclaurin
+\question Evaluate the following limits.
+\begin{parts}
+\part Evaluate
+\[
+\lim_{x \to 0} \frac{1 - \cos x}{x^2}.
+\]
+\vspace{12em}
+\part Evaluate
+\[
+\lim_{x \to 0} \frac{\sin 2x}{x}.
+\]
+\vspace{12em}
+\part Evaluate
+\[
+\lim_{x \to 0} \frac{e^{2x} - 1 - 2x}{x^2}.
+\]
+\vspace{12em}
+\part Evaluate
+\[
+\lim_{x \to \infty} \frac{\ln x}{x}.
+\]
+\vspace{12em}
+\end{parts}
+
+
+\newpage
+% Question: First-order ODE (exponential growth/decay)
+\question Consider the differential equation
+\[
+\frac{dy}{dx} = ky, \quad k \text{ is a constant}.
+\]
+
+\begin{parts}
+\part Solve the differential equation to find the general solution for $y$ in terms of $x$.  
+\vspace{16em}
+
+\part Given that $y = 5$ when $x = 0$, find the particular solution.  
+\vspace{16em}
+
+\part If $k = 2$, use your solution to calculate the value of $y$ when $x = 3$.  
+\vspace{16em}
+\end{parts}
+
+\newpage
+% Question: Optimization with Trigonometric Functions
+\question A ladder 10 metres long is leaning against a vertical wall.  
+Let $\theta$ be the angle between the ladder and the horizontal ground.  
+
+\begin{parts}
+\part Show that the height $h$ of the top of the ladder above the ground can be expressed as
+\[
+h(\theta) = 10 \sin \theta.
+\]  
+\vspace{18em}
+
+\part The horizontal distance $d$ from the wall to the base of the ladder is
+\[
+d(\theta) = 10 \cos \theta.
+\]
+Find the area of the triangle formed by the wall, the ground, and the ladder as a function of $\theta$.  
+\vspace{18em}
+\newpage
+\part Find the value of $\theta$ that maximizes this triangular area, and calculate the maximum area.  
+\vspace{18em}
+\end{parts}
+
+
+\end{questions}
+
+
+\end{document}
+
